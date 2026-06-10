@@ -31,6 +31,7 @@
   .logos-strip { display: flex; align-items: center; gap: 26px; opacity: .96; }
   .logos-strip img { height: 30px; width: auto; object-fit: contain; }
   .logos-strip img.tall { height: 34px; }
+  .logos-strip img[src*="hergo"] { height: 40px; }   /* Hergo es horizontal: necesita mas alto para no verse chico */
 
   .search-wrap { max-width: 1240px; margin: 22px auto 0; position: relative; }
   #search {
@@ -48,6 +49,7 @@
   .group-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 2px solid var(--g-accent, #94a3b8); }
   .group-logos { display: flex; align-items: center; gap: 16px; }
   .group-logos img { height: 30px; width: auto; object-fit: contain; }
+  .group-logos img[src*="hergo"] { height: 42px; }   /* Hergo es horizontal: necesita mas alto para no verse chico */
   .group-name { font-size: 16px; font-weight: 800; letter-spacing: .01em; color: var(--g-accent, #334155); text-transform: uppercase; }
   .group-head .chip { margin-left: auto; font-size: 12px; color: var(--muted); background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 3px 11px; }
 
