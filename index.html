@@ -93,6 +93,41 @@
   .spinner { width: 36px; height: 36px; margin: 0 auto 16px; border: 3px solid var(--border); border-top-color: #334155; border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ===== Pantalla inicial de áreas ===== */
+  .areas-intro { text-align: center; margin: 22px 0 32px; }
+  .areas-intro h2 { font-size: 23px; font-weight: 800; letter-spacing: -.02em; }
+  .areas-intro p { color: var(--muted); margin-top: 6px; font-size: 15px; }
+  .areas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; max-width: 780px; margin: 0 auto; }
+  .area-btn {
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px;
+    background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--a-accent, #334155);
+    border-radius: 18px; padding: 30px 22px; text-decoration: none; color: var(--text); box-shadow: var(--shadow);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .area-btn:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+  .area-icon {
+    width: 62px; height: 62px; border-radius: 16px; display: grid; place-items: center; font-size: 31px; margin-bottom: 4px;
+    background: #eef2f6; background: color-mix(in srgb, var(--a-accent, #334155) 12%, #fff);
+  }
+  .area-name { font-size: 18px; font-weight: 800; letter-spacing: .01em; }
+  .area-desc { font-size: 13px; color: var(--muted); line-height: 1.35; }
+  .area-count {
+    margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--a-accent, #475569);
+    background: #eef2f6; background: color-mix(in srgb, var(--a-accent, #334155) 10%, #fff);
+    padding: 3px 12px; border-radius: 999px;
+  }
+
+  /* Barra de área dentro del dashboard */
+  .area-bar { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; flex-wrap: wrap; }
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 13px; font-weight: 700;
+    color: var(--text); background: #fff; border: 1px solid var(--border); border-radius: 9px; padding: 8px 13px;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .back-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+  .area-bar-title { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; letter-spacing: .01em; }
+  .area-bar-icon { font-size: 20px; }
+
   footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px; border-top: 1px solid var(--border); }
 
   @media (max-width: 640px) {
@@ -151,6 +186,12 @@
     };
     const DEFAULT_GRUPO = { accent: "#475569", tint: "#eef2f6", icon: "📊", logos: [] };
 
+    // Identidad por ÁREA (pantalla inicial). Orden = primero las definidas acá, luego el resto.
+    const AREAS = {
+      "DIRECTORIO": { accent: "#0f172a", icon: "🏛️", desc: "Reportes ejecutivos para el directorio" }
+    };
+    const DEFAULT_AREA = { accent: "#475569", icon: "📂", desc: "" };
+
     const MESES = ["", "Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
     const norm = (s) => (s ?? "").toString().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
@@ -159,6 +200,7 @@
     const cfg = (g) => GRUPOS[g] || DEFAULT_GRUPO;
 
     let CARDS = [];          // tarjetas resueltas (simples + mensuales)
+    let CURRENT_AREA = null; // área seleccionada (null = pantalla inicial)
     const MONTHLY_STORE = {}; // id -> versiones, para el menú desplegable
 
     async function load() {
@@ -170,13 +212,14 @@
         const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
         const items = rows.map(r => ({
+          area:   (pick(r, ["area"]) || "GENERAL").toString().trim(),
           grupo:  (pick(r, ["agrupacion", "categoria", "grupo"]) || "OTROS").toString().trim(),
           nombre: pick(r, ["nombre", "tablero", "titulo"]).toString().trim(),
           url:    pick(r, ["link", "url", "enlace"]).toString().trim(),
         })).filter(t => t.nombre && t.url);
 
         CARDS = buildCards(items);
-        render("");
+        route();
       } catch (e) {
         document.getElementById("content").innerHTML =
           `<div class="state"><h3>No se pudieron cargar los tableros</h3>` +
@@ -196,9 +239,9 @@
         if (m) {
           const base = it.nombre.replace(MONTH_RE, "").trim();
           const mm = +m[1], yyyy = +m[2];
-          const key = it.grupo + "||" + base;
+          const key = it.area + "||" + it.grupo + "||" + base;
           if (!monthlyGroups.has(key)) {
-            monthlyGroups.set(key, { type: "monthly", grupo: it.grupo, nombre: base, orden: idx, versiones: [] });
+            monthlyGroups.set(key, { type: "monthly", area: it.area, grupo: it.grupo, nombre: base, orden: idx, versiones: [] });
             cards.push(monthlyGroups.get(key));
           }
           monthlyGroups.get(key).versiones.push({
@@ -207,7 +250,7 @@
             url: it.url
           });
         } else {
-          cards.push({ type: "single", grupo: it.grupo, nombre: it.nombre, url: it.url, orden: idx });
+          cards.push({ type: "single", area: it.area, grupo: it.grupo, nombre: it.nombre, url: it.url, orden: idx });
         }
       });
 
@@ -216,21 +259,81 @@
       return cards;
     }
 
-    function render(query) {
-      const q = norm(query);
-      const matches = (c) => !q || norm(c.nombre + " " + c.grupo).includes(q);
-      const visible = CARDS.filter(matches);
+    // ===== Helpers de áreas =====
+    const areaCfg = (a) => AREAS[a] || DEFAULT_AREA;
+    const reportsIn = (cards) => cards.reduce((n, c) => n + (c.type === "monthly" ? c.versiones.length : 1), 0);
+    function areaList() {
+      const seen = [];
+      for (const c of CARDS) if (!seen.includes(c.area)) seen.push(c.area);
+      const defined = Object.keys(AREAS).filter(a => seen.includes(a));
+      return [...defined, ...seen.filter(a => !defined.includes(a))];
+    }
 
-      const content = document.getElementById("content");
+    // ===== Router por hash (#/area/NOMBRE) =====
+    function route() {
+      const m = location.hash.match(/^#\/area\/(.+)$/);
+      const area = m ? decodeURIComponent(m[1]) : null;
+      const search = document.getElementById("search");
+      if (area && areaList().includes(area)) {
+        CURRENT_AREA = area;
+        document.querySelector(".search-wrap").style.display = "";
+        renderDashboard(area, search.value);
+      } else {
+        CURRENT_AREA = null;
+        search.value = "";
+        document.querySelector(".search-wrap").style.display = "none";
+        renderLanding();
+      }
+      window.scrollTo(0, 0);
+    }
+
+    // ===== Pantalla inicial: botones por área =====
+    function renderLanding() {
+      document.getElementById("count").textContent = "";
+      const areas = areaList();
+      let html = `<div class="areas-intro"><h2>¿A qué área querés entrar?</h2><p>Elegí un área para ver sus tableros.</p></div><div class="areas-grid">`;
+      for (const a of areas) {
+        const ac = areaCfg(a);
+        const cards = CARDS.filter(c => c.area === a);
+        html += `<a class="area-btn" href="#/area/${encodeURIComponent(a)}" style="--a-accent:${ac.accent}">
+          <div class="area-icon">${ac.icon || "📂"}</div>
+          <div class="area-name">${esc(a)}</div>
+          ${ac.desc ? `<div class="area-desc">${esc(ac.desc)}</div>` : ""}
+          <div class="area-count">${reportsIn(cards)} reportes</div>
+        </a>`;
+      }
+      html += `</div>`;
+      document.getElementById("content").innerHTML = html;
+    }
+
+    // ===== Dashboard de un área: barra de vuelta + grupos =====
+    function renderDashboard(area, query) {
+      const ac = areaCfg(area);
+      document.getElementById("content").innerHTML =
+        `<div class="area-bar">
+          <a class="back-btn" href="#/">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Áreas
+          </a>
+          <span class="area-bar-title"><span class="area-bar-icon">${ac.icon || "📂"}</span>${esc(area)}</span>
+        </div>
+        <div id="groups"></div>`;
+      renderGroups(CARDS.filter(c => c.area === area), query);
+    }
+
+    // ===== Render de grupos (agrupaciones) dentro de un área =====
+    function renderGroups(areaCards, query) {
+      const q = norm(query);
+      const visible = areaCards.filter(c => !q || norm(c.nombre + " " + c.grupo).includes(q));
+      const container = document.getElementById("groups");
       const countEl = document.getElementById("count");
 
       if (visible.length === 0) {
-        content.innerHTML = `<div class="state"><h3>Sin resultados</h3><p>No hay reportes que coincidan con tu búsqueda.</p></div>`;
+        container.innerHTML = `<div class="state"><h3>Sin resultados</h3><p>No hay reportes que coincidan con tu búsqueda.</p></div>`;
         countEl.textContent = "";
         return;
       }
 
-      // Orden de grupos: primero los definidos en GRUPOS, luego el resto alfabético
       const defined = Object.keys(GRUPOS);
       const present = [...new Set(visible.map(c => c.grupo))];
       const ordered = [
@@ -238,8 +341,7 @@
         ...present.filter(g => !defined.includes(g)).sort()
       ];
 
-      let mid = 0;
-      let html = "";
+      let mid = 0, html = "";
       for (const grupo of ordered) {
         const cards = visible.filter(c => c.grupo === grupo);
         if (!cards.length) continue;
@@ -257,13 +359,12 @@
         }
         html += `</div></section>`;
       }
-      content.innerHTML = html;
+      container.innerHTML = html;
       wireMonthly();
 
-      const totReports = CARDS.reduce((n, c) => n + (c.type === "monthly" ? c.versiones.length : 1), 0);
       countEl.textContent = q
         ? `${visible.length} resultado${visible.length !== 1 ? "s" : ""} para “${query}”`
-        : `${totReports} reportes · ${ordered.length} agrupaciones`;
+        : `${reportsIn(areaCards)} reportes · ${ordered.length} agrupaciones`;
     }
 
     function iconFor(c, cfgGrupo) {
@@ -319,7 +420,10 @@
       });
     }
 
-    document.getElementById("search").addEventListener("input", e => render(e.target.value));
+    document.getElementById("search").addEventListener("input", e => {
+      if (CURRENT_AREA) renderGroups(CARDS.filter(c => c.area === CURRENT_AREA), e.target.value);
+    });
+    window.addEventListener("hashchange", route);
     document.getElementById("footer").textContent = "Tableros PowerBI · la lista se actualiza editando LINKS POWER BI.xlsx";
     load();
   </script>
