@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tableros PowerBI</title>
+<link rel="preconnect" href="https://cdn.sheetjs.com" />
+<style>
+  :root {
+    --surface: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --shadow: 0 1px 3px rgba(15,23,42,.08), 0 8px 24px rgba(15,23,42,.06);
+    --shadow-hover: 0 4px 12px rgba(15,23,42,.12), 0 16px 40px rgba(15,23,42,.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f1f5f9; color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== Header ===== */
+  header {
+    background: linear-gradient(135deg, #0b1220 0%, #1e293b 55%, #334155 100%);
+    color: #fff; padding: 36px 24px 30px;
+  }
+  .header-inner { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; }
+  .title-block h1 { font-size: 27px; font-weight: 800; letter-spacing: -.02em; }
+  .title-block p { color: #94a3b8; margin-top: 4px; font-size: 15px; }
+  .logos-strip { display: flex; align-items: center; gap: 26px; opacity: .96; }
+  .logos-strip img { height: 30px; width: auto; object-fit: contain; }
+  .logos-strip img.tall { height: 34px; }
+
+  .search-wrap { max-width: 1240px; margin: 22px auto 0; position: relative; }
+  #search {
+    width: 100%; padding: 14px 16px 14px 46px; border: none; border-radius: 12px; font-size: 15px;
+    background: rgba(255,255,255,.97); color: var(--text); box-shadow: 0 6px 20px rgba(0,0,0,.18); outline: none;
+  }
+  #search:focus { box-shadow: 0 0 0 3px rgba(148,163,184,.6), 0 6px 20px rgba(0,0,0,.18); }
+  .search-wrap svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+
+  /* ===== Main ===== */
+  main { max-width: 1240px; margin: 0 auto; padding: 28px 24px 64px; }
+  .count { color: var(--muted); font-size: 14px; margin-bottom: 4px; }
+
+  .group { margin-top: 34px; }
+  .group-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 2px solid var(--g-accent, #94a3b8); }
+  .group-logos { display: flex; align-items: center; gap: 16px; }
+  .group-logos img { height: 30px; width: auto; object-fit: contain; }
+  .group-name { font-size: 16px; font-weight: 800; letter-spacing: .01em; color: var(--g-accent, #334155); text-transform: uppercase; }
+  .group-head .chip { margin-left: auto; font-size: 12px; color: var(--muted); background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 3px 11px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; }
+
+  .card {
+    display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px; box-shadow: var(--shadow);
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    position: relative; overflow: hidden; min-height: 132px;
+  }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--g-accent, #94a3b8); }
+  a.card { text-decoration: none; color: inherit; }
+  a.card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); border-color: var(--g-accent, #94a3b8); }
+  .card-top { display: flex; align-items: flex-start; gap: 11px; }
+  .card-icon { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center; font-size: 20px; background: var(--g-tint, #f1f5f9); }
+  .card-title { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+  .card-badge { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--g-accent, #475569); }
+  .card-spacer { flex: 1; }
+  .card-cta { margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--g-accent, #475569); display: flex; align-items: center; gap: 6px; }
+  a.card:hover .card-cta { gap: 9px; }
+
+  /* Monthly card */
+  .card.monthly .row { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+  .month-select {
+    flex: 1; min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px;
+    font-size: 13px; font-weight: 600; color: var(--text); background: #f8fafc; cursor: pointer; outline: none;
+  }
+  .month-select:focus { border-color: var(--g-accent, #94a3b8); box-shadow: 0 0 0 3px rgba(148,163,184,.25); }
+  .open-btn {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    background: var(--g-accent, #334155); color: #fff; font-size: 13px; font-weight: 700;
+    padding: 9px 14px; border-radius: 9px; transition: filter .15s ease, gap .15s ease;
+  }
+  .open-btn:hover { filter: brightness(1.08); gap: 9px; }
+
+  /* States */
+  .state { text-align: center; padding: 64px 24px; color: var(--muted); }
+  .state h3 { color: var(--text); font-size: 18px; margin-bottom: 8px; }
+  .state code { background: #fff; border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
+  .spinner { width: 36px; height: 36px; margin: 0 auto 16px; border: 3px solid var(--border); border-top-color: #334155; border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px; border-top: 1px solid var(--border); }
+
+  @media (max-width: 640px) {
+    header { padding: 26px 18px 22px; }
+    .logos-strip { gap: 18px; }
+    .logos-strip img { height: 24px; }
+    main { padding: 22px 16px 48px; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="title-block">
+        <h1>Tableros PowerBI</h1>
+        <p>Acceso rápido a todos los reportes de la empresa</p>
+      </div>
+      <div class="logos-strip">
+        <img src="assets/logos/white-hergo.png" alt="Hergo" />
+        <img src="assets/logos/white-alta.png" alt="Alta" class="tall" />
+        <img src="assets/logos/white-mc.png" alt="Menor Coste" />
+        <img src="assets/logos/white-black.png" alt="Black" class="tall" />
+      </div>
+    </div>
+    <div class="search-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="search" type="text" placeholder="Buscar reporte por nombre o agrupación…" autocomplete="off" />
+    </div>
+  </header>
+
+  <main>
+    <div class="count" id="count"></div>
+    <div id="content"><div class="state"><div class="spinner"></div>Cargando tableros…</div></div>
+  </main>
+
+  <footer id="footer"></footer>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script>
+    // ====== Config ======
+    const EXCEL_FILE = "LINKS POWER BI.xlsx"; // fuente de la verdad
+
+    // Identidad por agrupación (orden de aparición = orden en pantalla)
+    const GRUPOS = {
+      "HERGO - DISTRIBUCION": {
+        accent: "#1B4FE5", tint: "#e9efff",
+        logos: ["assets/logos/hergo.png", "assets/logos/alta.png"]
+      },
+      "MENOR COSTE": {
+        accent: "#2E8757", tint: "#e7f4ec",
+        logos: ["assets/logos/menor-coste.png"]
+      },
+      "FINANZAS": {
+        accent: "#0F766E", tint: "#e0f2f0", icon: "💵", logos: []
+      }
+    };
+    const DEFAULT_GRUPO = { accent: "#475569", tint: "#eef2f6", icon: "📊", logos: [] };
+
+    const MESES = ["", "Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+    const norm = (s) => (s ?? "").toString().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+    function pick(row, names) { for (const k of Object.keys(row)) if (names.includes(norm(k))) return row[k]; return ""; }
+    function esc(s) { return (s ?? "").toString().replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+    const cfg = (g) => GRUPOS[g] || DEFAULT_GRUPO;
+
+    let CARDS = [];          // tarjetas resueltas (simples + mensuales)
+    const MONTHLY_STORE = {}; // id -> versiones, para el menú desplegable
+
+    async function load() {
+      try {
+        const res = await fetch(encodeURI(EXCEL_FILE) + "?v=" + Date.now());
+        if (!res.ok) throw new Error("No se encontró “" + EXCEL_FILE + "”");
+        const wb = XLSX.read(await res.arrayBuffer(), { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+        const items = rows.map(r => ({
+          grupo:  (pick(r, ["agrupacion", "categoria", "grupo"]) || "OTROS").toString().trim(),
+          nombre: pick(r, ["nombre", "tablero", "titulo"]).toString().trim(),
+          url:    pick(r, ["link", "url", "enlace"]).toString().trim(),
+        })).filter(t => t.nombre && t.url);
+
+        CARDS = buildCards(items);
+        render("");
+      } catch (e) {
+        document.getElementById("content").innerHTML =
+          `<div class="state"><h3>No se pudieron cargar los tableros</h3>` +
+          `<p>Verificá que el archivo <code>${esc(EXCEL_FILE)}</code> esté junto a esta página.</p>` +
+          `<p style="margin-top:8px;font-size:12px">${esc(e.message)}</p></div>`;
+      }
+    }
+
+    // Detecta sufijo mensual " MM-YYYY" y colapsa esos reportes en una sola tarjeta con menú
+    function buildCards(items) {
+      const MONTH_RE = /\s(\d{2})-(\d{4})\s*$/;
+      const monthlyGroups = new Map(); // clave grupo||base -> {grupo, base, orden, versiones[]}
+      const cards = [];
+
+      items.forEach((it, idx) => {
+        const m = it.nombre.match(MONTH_RE);
+        if (m) {
+          const base = it.nombre.replace(MONTH_RE, "").trim();
+          const mm = +m[1], yyyy = +m[2];
+          const key = it.grupo + "||" + base;
+          if (!monthlyGroups.has(key)) {
+            monthlyGroups.set(key, { type: "monthly", grupo: it.grupo, nombre: base, orden: idx, versiones: [] });
+            cards.push(monthlyGroups.get(key));
+          }
+          monthlyGroups.get(key).versiones.push({
+            ym: yyyy * 100 + mm,
+            label: `${MESES[mm]} ${yyyy}`,
+            url: it.url
+          });
+        } else {
+          cards.push({ type: "single", grupo: it.grupo, nombre: it.nombre, url: it.url, orden: idx });
+        }
+      });
+
+      // Ordenar versiones de cada mensual: más reciente primero
+      for (const g of monthlyGroups.values()) g.versiones.sort((a, b) => b.ym - a.ym);
+      return cards;
+    }
+
+    function render(query) {
+      const q = norm(query);
+      const matches = (c) => !q || norm(c.nombre + " " + c.grupo).includes(q);
+      const visible = CARDS.filter(matches);
+
+      const content = document.getElementById("content");
+      const countEl = document.getElementById("count");
+
+      if (visible.length === 0) {
+        content.innerHTML = `<div class="state"><h3>Sin resultados</h3><p>No hay reportes que coincidan con tu búsqueda.</p></div>`;
+        countEl.textContent = "";
+        return;
+      }
+
+      // Orden de grupos: primero los definidos en GRUPOS, luego el resto alfabético
+      const defined = Object.keys(GRUPOS);
+      const present = [...new Set(visible.map(c => c.grupo))];
+      const ordered = [
+        ...defined.filter(g => present.includes(g)),
+        ...present.filter(g => !defined.includes(g)).sort()
+      ];
+
+      let mid = 0;
+      let html = "";
+      for (const grupo of ordered) {
+        const cards = visible.filter(c => c.grupo === grupo);
+        if (!cards.length) continue;
+        const c = cfg(grupo);
+        const logosHtml = (c.logos || []).map(src => `<img src="${src}" alt="${esc(grupo)}" />`).join("");
+        html += `<section class="group" style="--g-accent:${c.accent};--g-tint:${c.tint}">
+          <div class="group-head">
+            ${logosHtml ? `<span class="group-logos">${logosHtml}</span>` : ""}
+            <span class="group-name">${esc(grupo)}</span>
+            <span class="chip">${cards.length}</span>
+          </div>
+          <div class="grid">`;
+        for (const card of cards) {
+          html += card.type === "monthly" ? monthlyCard(card, c, mid++) : singleCard(card, c);
+        }
+        html += `</div></section>`;
+      }
+      content.innerHTML = html;
+      wireMonthly();
+
+      const totReports = CARDS.reduce((n, c) => n + (c.type === "monthly" ? c.versiones.length : 1), 0);
+      countEl.textContent = q
+        ? `${visible.length} resultado${visible.length !== 1 ? "s" : ""} para “${query}”`
+        : `${totReports} reportes · ${ordered.length} agrupaciones`;
+    }
+
+    function iconFor(c, cfgGrupo) {
+      return `<div class="card-icon">${cfgGrupo.icon ? cfgGrupo.icon : "📊"}</div>`;
+    }
+
+    function singleCard(card, c) {
+      return `<a class="card" href="${esc(card.url)}" target="_blank" rel="noopener">
+        <div class="card-top">
+          ${iconFor(card, c)}
+          <div class="card-title">${esc(card.nombre)}</div>
+        </div>
+        <div class="card-spacer"></div>
+        <div class="card-cta">Abrir tablero
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </a>`;
+    }
+
+    function monthlyCard(card, c, id) {
+      MONTHLY_STORE[id] = card.versiones;
+      const opts = card.versiones.map((v, i) => `<option value="${i}">${esc(v.label)}</option>`).join("");
+      const first = card.versiones[0];
+      return `<div class="card monthly">
+        <div class="card-top">
+          ${iconFor(card, c)}
+          <div>
+            <div class="card-title">${esc(card.nombre)}</div>
+            <span class="card-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Mensual · ${card.versiones.length} meses
+            </span>
+          </div>
+        </div>
+        <div class="card-spacer"></div>
+        <div class="row">
+          <select class="month-select" data-id="${id}" aria-label="Seleccionar mes">${opts}</select>
+          <a class="open-btn" data-open="${id}" href="${esc(first.url)}" target="_blank" rel="noopener">Abrir
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
+      </div>`;
+    }
+
+    function wireMonthly() {
+      document.querySelectorAll(".month-select").forEach(sel => {
+        sel.addEventListener("change", () => {
+          const id = sel.getAttribute("data-id");
+          const v = MONTHLY_STORE[id][+sel.value];
+          const btn = document.querySelector(`.open-btn[data-open="${id}"]`);
+          if (btn && v) btn.setAttribute("href", v.url);
+        });
+      });
+    }
+
+    document.getElementById("search").addEventListener("input", e => render(e.target.value));
+    document.getElementById("footer").textContent = "Tableros PowerBI · la lista se actualiza editando LINKS POWER BI.xlsx";
+    load();
+  </script>
+</body>
+</html>
