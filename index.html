@@ -143,8 +143,8 @@
   <header>
     <div class="header-inner">
       <div class="title-block">
-        <h1>Tableros PowerBI</h1>
-        <p>Acceso rápido a todos los reportes de la empresa</p>
+        <h1>Apps y tableros</h1>
+        <p>Acceso rápido a todas las herramientas de la empresa</p>
       </div>
       <div class="logos-strip">
         <img src="assets/logos/white-hergo.png" alt="Hergo" />
@@ -188,8 +188,13 @@
     const DEFAULT_GRUPO = { accent: "#475569", tint: "#eef2f6", icon: "📊", logos: [] };
 
     // Identidad por ÁREA (pantalla inicial). Orden = primero las definidas acá, luego el resto.
+    // icon: emoji que le da personalidad al botón segun lo que es el área.
     const AREAS = {
-      "DIRECTORIO": { accent: "#0f172a", icon: "🏛️", desc: "Reportes ejecutivos para el directorio" }
+      "DIRECTORIO":         { accent: "#8a92d8", icon: "🏛️", desc: "Reportes ejecutivos para el directorio" },
+      "AREAS COMUNES":      { accent: "#b48fd6", icon: "🧰", desc: "Apps y portales de uso general" },
+      "PREVENTA":           { accent: "#86b0e6", icon: "🛒", desc: "Apps de venta para la fuerza de calle" },
+      "PREVENTA MAYORISTA": { accent: "#74c7b8", icon: "🚚", desc: "Portales y apps del canal mayorista" },
+      "DEPOSITO":           { accent: "#e3a878", icon: "📦", desc: "Apps de stock y logística de depósito" }
     };
     const DEFAULT_AREA = { accent: "#475569", icon: "📂", desc: "" };
 
@@ -263,7 +268,23 @@
 
     // ===== Helpers de áreas =====
     const areaCfg = (a) => AREAS[a] || DEFAULT_AREA;
-    const reportsIn = (cards) => cards.reduce((n, c) => n + (c.type === "monthly" ? c.versiones.length : 1), 0);
+    // Reporte = link de Power BI (tiene reportId). Lo demás (apps/portales) = app.
+    const esReporte = (url) => /reportId=/i.test(url || "");
+    function contar(cards) {
+      let rep = 0, app = 0;
+      for (const c of cards) {
+        if (c.type === "monthly") c.versiones.forEach(v => esReporte(v.url) ? rep++ : app++);
+        else esReporte(c.url) ? rep++ : app++;
+      }
+      return { rep, app };
+    }
+    function etiquetaConteo(cards) {
+      const { rep, app } = contar(cards);
+      const partes = [];
+      if (rep) partes.push(`${rep} reporte${rep !== 1 ? "s" : ""}`);
+      if (app) partes.push(`${app} app${app !== 1 ? "s" : ""}`);
+      return partes.join(" · ") || "0 reportes";
+    }
     function areaList() {
       const seen = [];
       for (const c of CARDS) if (!seen.includes(c.area)) seen.push(c.area);
@@ -301,7 +322,7 @@
           <div class="area-icon">${ac.icon || "📂"}</div>
           <div class="area-name">${esc(a)}</div>
           ${ac.desc ? `<div class="area-desc">${esc(ac.desc)}</div>` : ""}
-          <div class="area-count">${reportsIn(cards)} reportes</div>
+          <div class="area-count">${etiquetaConteo(cards)}</div>
         </a>`;
       }
       html += `</div>`;
@@ -366,7 +387,7 @@
 
       countEl.textContent = q
         ? `${visible.length} resultado${visible.length !== 1 ? "s" : ""} para “${query}”`
-        : `${reportsIn(areaCards)} reportes · ${ordered.length} agrupaciones`;
+        : `${etiquetaConteo(areaCards)} · ${ordered.length} agrupaci${ordered.length !== 1 ? "ones" : "ón"}`;
     }
 
     function iconFor(c, cfgGrupo) {
