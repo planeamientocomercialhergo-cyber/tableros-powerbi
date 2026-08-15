@@ -129,7 +129,12 @@
   .area-bar-title { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; letter-spacing: .01em; }
   .area-bar-icon { font-size: 20px; }
 
-  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px; border-top: 1px solid var(--border); }
+  footer {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    text-align: center; color: var(--muted); font-size: 13px; padding: 24px; border-top: 1px solid var(--border);
+  }
+  .rtm-mark { height: 30px; width: auto; opacity: .38; filter: grayscale(.35); transition: opacity .2s ease, filter .2s ease; }
+  .rtm-mark:hover { opacity: .85; filter: none; }
 
   @media (max-width: 640px) {
     header { padding: 26px 18px 22px; }
@@ -164,7 +169,10 @@
     <div id="content"><div class="state"><div class="spinner"></div>Cargando tableros…</div></div>
   </main>
 
-  <footer id="footer"></footer>
+  <footer id="footer">
+    <span>Tableros PowerBI · la lista se actualiza editando LINKS POWER BI.xlsx</span>
+    <img class="rtm-mark" src="assets/logos/rtm-watermark.png" alt="Desarrollado por RTM · Route To Market" />
+  </footer>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script>
@@ -449,7 +457,6 @@
       if (CURRENT_AREA) renderGroups(CARDS.filter(c => c.area === CURRENT_AREA), e.target.value);
     });
     window.addEventListener("hashchange", route);
-    document.getElementById("footer").textContent = "Tableros PowerBI · la lista se actualiza editando LINKS POWER BI.xlsx";
     load();
   </script>
 </body>
