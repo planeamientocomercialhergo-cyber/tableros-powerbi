@@ -1,0 +1,66 @@
+{
+  "_comentario": "Config del sincronizador. Editable a mano. No contiene secretos.",
+
+  "_areas": "Area de trabajo (workspace) de Power BI  ->  columna Area del Excel.",
+  "areas": {
+    "Directorio":              "DIRECTORIO",
+    "Compras":                 "COMPRAS",
+    "Grupo Hergo - Jefes":     "JEFES",
+    "Grupo Hergo - Gerencias": "GERENCIA",
+    "Grupo Hergo - Finanzas":  "FINANZAS"
+  },
+
+  "_agrupacion_default": "Agrupacion que se pone a un reporte nuevo recien descubierto. Despues la corregis a mano en el Excel y el script la respeta para siempre.",
+  "agrupacion_default": {
+    "Directorio":              "HERGO - DISTRIBUCION",
+    "Compras":                 "HERGO - DISTRIBUCION",
+    "Grupo Hergo - Jefes":     "HERGO - DISTRIBUCION",
+    "Grupo Hergo - Gerencias": "HERGO - DISTRIBUCION",
+    "Grupo Hergo - Finanzas":  "FINANZAS"
+  },
+
+  "_agrupacion_por_nombre": "Si el nombre del reporte contiene este texto, va a esa Agrupacion. Se evalua antes que agrupacion_default y en este orden.",
+  "agrupacion_por_nombre": {
+    "menor coste": "MENOR COSTE",
+    " mc": "MENOR COSTE",
+    "mc ": "MENOR COSTE",
+    "cash flow": "FINANZAS",
+    "cacerola": "FINANZAS",
+    "situacion financiera": "FINANZAS",
+    "cxc": "FINANZAS"
+  },
+
+  "_alias_series": "Nombre base de una serie mensual en Power BI -> como se llama en el tablero. Sin esto, 'Informe Hctos - Junio 26' se publicaria como 'INFORME HCTOS 06-2026'.",
+  "alias_series": {
+    "informe hctos": "HECTOLITROS",
+    "participacion ventas ccu": "PARTICIPACION VENTAS CCU"
+  },
+
+  "_publicar_nuevos": "SI = el Excel replica las areas de trabajo: todo reporte que exista se publica, y en la hoja Catalogo ponés NO a lo que no quieras. Vacio = al reves, nada se publica hasta que pongas SI.",
+  "publicar_nuevos": "SI",
+
+  "_meses_max": "De una serie mensual ya publicada, cuantos meses recientes se publican solos. 2 = mes actual y anterior. 0 = todos.",
+  "meses_max": 2,
+
+  "_replicar_en_todas_las_areas": "Links cargados a mano que se publican en TODAS las areas de trabajo, y en que agrupacion cae cada uno. Se cargan una sola vez en el Excel; si cambia la URL se edita en un solo lugar.",
+  "replicar_en_todas_las_areas": {
+    "REPORTE DE VENTAS": "PRINCIPAL",
+    "SEGUIMIENTO DE OBJETIVOS": "HERGO - DISTRIBUCION"
+  },
+
+  "_tratar_como_informe": "Links a mano que no son de Power BI pero son informes, no apps. Cambia el icono, el boton (Abrir tablero) y como se cuentan.",
+  "tratar_como_informe": [
+    "REPORTE DE VENTAS",
+    "SEGUIMIENTO DE OBJETIVOS"
+  ],
+
+  "_descartar_reportid": "Informes borrados de Power BI que ya no querés ver avisados en el resumen de cada corrida.",
+  "descartar_reportid": [
+    "b812abf4-311c-4170-b461-57f33d776c6e"
+  ],
+
+  "_ignorar": "Reportes que nunca entran ni al Catalogo. Coincidencia por texto contenido, sin distinguir mayusculas.",
+  "ignorar": [
+    "Usage Metrics Report"
+  ]
+}
