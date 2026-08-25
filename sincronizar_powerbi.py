@@ -186,36 +186,68 @@ def api_post(ruta, cuerpo):
         return json.loads(r.read().decode("utf-8"))
 
 
-def vistas_por_reporte(ws_id):
-    """reportId -> cantidad de vistas, del modelo de Usage Metrics del workspace.
+def _guid(v):
+    """Users[UserGuid] viene como '{ABC-...}' y Views[UserGuid] como 'ABC-...'.
+    Se comparan sin llaves ni mayusculas."""
+    return str(v or "").strip().strip("{}").lower()
 
-    Power BI crea ese modelo recien cuando alguien abre "Metricas de uso" desde
-    el Service en ese area de trabajo. Si no existe, devuelve {} y el orden pasa
-    a ser alfabetico.
+
+def vistas_por_reporte(ws_id, excluir_upn=()):
+    """(reportId -> vistas, vistas_descartadas)
+
+    Lee el modelo de Usage Metrics del workspace. Power BI lo crea recien cuando
+    alguien abre "Metricas de uso" desde el Service en esa area de trabajo; si no
+    existe devuelve ({}, 0) y el orden pasa a ser alfabetico.
+
+    excluir_upn: cuentas cuyas vistas no cuentan (las propias, tipicamente, que
+    si no inflan justo los informes que uno mas toca al desarrollarlos). Se
+    compara por texto contenido en el UserPrincipalName, sin mayusculas.
     """
     try:
         ds = api("/groups/%s/datasets" % ws_id)["value"]
     except Exception:  # noqa: BLE001
-        return {}
+        return {}, 0
     um = [d for d in ds if "usage metrics" in norm(d.get("name"))]
     if not um:
-        return {}
-    consulta = ("EVALUATE SUMMARIZECOLUMNS(Views[ReportGuid], "
-                "\"vistas\", SUM(Views[GranularViewsCount]))")
+        return {}, 0
+    ruta = "/groups/%s/datasets/%s/executeQueries" % (ws_id, um[0]["id"])
+
+    def consultar(dax):
+        res = api_post(ruta, {"queries": [{"query": dax}]})
+        return res["results"][0]["tables"][0]["rows"]
+
+    # que UserGuid corresponde a las cuentas a descartar
+    fuera = set()
+    if excluir_upn:
+        try:
+            for f in consultar("EVALUATE SELECTCOLUMNS(Users, "
+                               "\"upn\", Users[UserPrincipalName], "
+                               "\"guid\", Users[UserGuid])"):
+                upn = norm(f.get("[upn]"))
+                if any(x in upn for x in excluir_upn):
+                    fuera.add(_guid(f.get("[guid]")))
+        except Exception:  # noqa: BLE001
+            pass   # sin tabla de usuarios se cuenta todo, mejor que fallar
+
+    # se agrupa tambien por usuario para poder descartar filas
     try:
-        res = api_post("/groups/%s/datasets/%s/executeQueries" % (ws_id, um[0]["id"]),
-                       {"queries": [{"query": consulta}]})
-        filas = res["results"][0]["tables"][0]["rows"]
+        filas = consultar("EVALUATE SUMMARIZECOLUMNS(Views[ReportGuid], "
+                          "Views[UserGuid], "
+                          "\"vistas\", SUM(Views[GranularViewsCount]))")
     except Exception:  # noqa: BLE001
-        return {}
-    out = {}
+        return {}, 0
+    out, descartadas = {}, 0
     for f in filas:
         rid = str(f.get("Views[ReportGuid]") or "").lower()
         try:
-            out[rid] = int(f.get("[vistas]") or 0)
+            v = int(f.get("[vistas]") or 0)
         except (TypeError, ValueError):
             continue
-    return out
+        if _guid(f.get("Views[UserGuid]")) in fuera:
+            descartadas += v
+            continue
+        out[rid] = out.get(rid, 0) + v
+    return out, descartadas
 
 
 # ------------------------------------------------------------ series mensuales
@@ -403,6 +435,7 @@ def main():
         rep_cfg = {x: cfg.get("agrupacion_apps_replicadas", "HERRAMIENTAS")
                    for x in rep_cfg}
     replicar = {norm(k): v for k, v in rep_cfg.items()}
+    excluir_upn = tuple(norm(x) for x in cfg.get("excluir_usuarios", []) if str(x).strip())
     como_informe = {norm(x) for x in cfg.get("tratar_como_informe", [])}
     reglas_agr = [(norm(k), v) for k, v in cfg.get("agrupacion_por_nombre", {}).items()]
     meses_max = int(cfg.get("meses_max", 12))  # 0 = sin tope
@@ -495,14 +528,15 @@ def main():
               % ", ".join(faltan))
 
     descubierto = []
-    con_uso, sin_uso = [], []
+    con_uso, sin_uso, descartadas = [], [], 0
     for nombre_ws, area in mapa_areas.items():
         g = encontrados.get(nombre_ws)
         if not g:
             continue
         reps = api("/groups/%s/reports" % g["id"])["value"]
         carpetas = carpetas_por_reporte(g["id"])
-        vistas = vistas_por_reporte(g["id"])
+        vistas, fuera_cuenta = vistas_por_reporte(g["id"], excluir_upn)
+        descartadas += fuera_cuenta
         sin_uso.append(nombre_ws) if not vistas else con_uso.append(nombre_ws)
         usados = 0
         por_carpeta = 0
@@ -668,6 +702,9 @@ def main():
     print("  Publicados (Publicar=SI) ......... %d" % len(publicados))
     print("  Links a mano preservados ......... %d" % len(manuales))
     print("  Areas con datos de uso ........... %s" % (", ".join(con_uso) or "ninguna"))
+    if excluir_upn:
+        print("  Vistas descartadas (%s) ... %d"
+              % (", ".join(excluir_upn), descartadas))
     if sin_uso:
         print("  SIN datos de uso (orden alfabetico): %s" % ", ".join(sin_uso))
         print("    Para activarlos: en Power BI Service, abri un informe de esa area")

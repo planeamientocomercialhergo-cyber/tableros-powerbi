@@ -54,6 +54,11 @@
     "SEGUIMIENTO DE OBJETIVOS"
   ],
 
+  "_excluir_usuarios": "Cuentas cuyas vistas NO cuentan para ordenar. Poner la propia evita que los informes que uno mas toca queden arriba por su propio uso. Coincide por texto contenido en el UserPrincipalName.",
+  "excluir_usuarios": [
+    "administracion01@"
+  ],
+
   "_descartar_reportid": "Informes borrados de Power BI que ya no querés ver avisados en el resumen de cada corrida.",
   "descartar_reportid": [
     "b812abf4-311c-4170-b461-57f33d776c6e"
