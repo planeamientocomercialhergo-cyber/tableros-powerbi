@@ -7,3 +7,7 @@ desktop.ini
 
 # Archivos locales
 links.xlsx
+
+# Archivos de prueba (no van a Vercel)
+LINKS POWER BI _test.xlsx
+index_test.html
