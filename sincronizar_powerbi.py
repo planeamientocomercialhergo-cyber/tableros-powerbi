@@ -65,10 +65,11 @@ FABRIC_API = "https://api.fabric.microsoft.com/v1"
 PLANTILLA_LINK = "https://app.powerbi.com/reportEmbed?reportId=%s&autoAuth=true"
 
 COLS_TABLEROS = ["Area", "Agrupacion", "Nombre", "Link", "Descripcion", "Origen",
-                 "Tipo"]   # INFORME o APP: define el icono, el boton y el conteo
+                 "Tipo",    # INFORME o APP: define el boton y el conteo
+                 "Vistas"]  # vistas de los ultimos meses, para ordenar
 COLS_CATALOGO = ["Publicar", "Area", "Agrupacion", "Nombre", "Descripcion",
                  "Serie", "Mes", "NombrePowerBI", "Carpeta", "AreaDeTrabajo",
-                 "reportId"]
+                 "reportId", "Vistas"]
 
 MESES_NOMBRE = {
     "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
@@ -174,6 +175,47 @@ def carpetas_por_reporte(ws_id):
         return {}
     return {(it.get("id") or "").lower(): nombres.get(it.get("folderId"), "")
             for it in items}
+
+
+def api_post(ruta, cuerpo):
+    datos = json.dumps(cuerpo).encode("utf-8")
+    req = _ur.Request(PBI_API + ruta, data=datos, method="POST")
+    req.add_header("Authorization", "Bearer " + access_token())
+    req.add_header("Content-Type", "application/json")
+    with _ur.urlopen(req, timeout=120) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def vistas_por_reporte(ws_id):
+    """reportId -> cantidad de vistas, del modelo de Usage Metrics del workspace.
+
+    Power BI crea ese modelo recien cuando alguien abre "Metricas de uso" desde
+    el Service en ese area de trabajo. Si no existe, devuelve {} y el orden pasa
+    a ser alfabetico.
+    """
+    try:
+        ds = api("/groups/%s/datasets" % ws_id)["value"]
+    except Exception:  # noqa: BLE001
+        return {}
+    um = [d for d in ds if "usage metrics" in norm(d.get("name"))]
+    if not um:
+        return {}
+    consulta = ("EVALUATE SUMMARIZECOLUMNS(Views[ReportGuid], "
+                "\"vistas\", SUM(Views[GranularViewsCount]))")
+    try:
+        res = api_post("/groups/%s/datasets/%s/executeQueries" % (ws_id, um[0]["id"]),
+                       {"queries": [{"query": consulta}]})
+        filas = res["results"][0]["tables"][0]["rows"]
+    except Exception:  # noqa: BLE001
+        return {}
+    out = {}
+    for f in filas:
+        rid = str(f.get("Views[ReportGuid]") or "").lower()
+        try:
+            out[rid] = int(f.get("[vistas]") or 0)
+        except (TypeError, ValueError):
+            continue
+    return out
 
 
 # ------------------------------------------------------------ series mensuales
@@ -288,11 +330,11 @@ FILL_SI = PatternFill("solid", fgColor="E7F4EC")
 FILL_NUEVO = PatternFill("solid", fgColor="FFF4CE")
 
 ANCHOS_TABLEROS = {"Link": 62, "Nombre": 38, "Descripcion": 45, "Area": 20,
-                   "Agrupacion": 24, "Origen": 9, "Tipo": 9}
+                   "Agrupacion": 24, "Origen": 9, "Tipo": 9, "Vistas": 8}
 ANCHOS_CATALOGO = {"Publicar": 10, "Area": 14, "Agrupacion": 24, "Nombre": 36,
                    "Descripcion": 40, "Serie": 26, "Mes": 10,
                    "NombrePowerBI": 40, "Carpeta": 16, "AreaDeTrabajo": 26,
-                   "reportId": 38}
+                   "reportId": 38, "Vistas": 8}
 
 
 def _volcar(ws, cols, filas, anchos, validar_publicar=False):
@@ -453,12 +495,15 @@ def main():
               % ", ".join(faltan))
 
     descubierto = []
+    con_uso, sin_uso = [], []
     for nombre_ws, area in mapa_areas.items():
         g = encontrados.get(nombre_ws)
         if not g:
             continue
         reps = api("/groups/%s/reports" % g["id"])["value"]
         carpetas = carpetas_por_reporte(g["id"])
+        vistas = vistas_por_reporte(g["id"])
+        sin_uso.append(nombre_ws) if not vistas else con_uso.append(nombre_ws)
         usados = 0
         por_carpeta = 0
         for r in reps:
@@ -478,6 +523,7 @@ def main():
                 "NombrePowerBI": nom,
                 "Serie": serie or "",
                 "Mes": ("%02d-%04d" % (per[1], per[0])) if per else "",
+                "Vistas": vistas.get(rid, 0),
                 "_orden": (per or (0, 0)),
             })
             usados += 1
@@ -541,6 +587,7 @@ def main():
             "Mes": d["Mes"],
             "NombrePowerBI": d["NombrePowerBI"],
             "Carpeta": d.get("Carpeta", ""),
+            "Vistas": d.get("Vistas", 0),
             "AreaDeTrabajo": d["AreaDeTrabajo"],
             "reportId": rid,
         })
@@ -594,10 +641,24 @@ def main():
             recortados.extend(fs[meses_max:])
         publicados.sort(key=lambda x: (x["Area"], x["Agrupacion"], x["Nombre"]))
 
+    # Las series mensuales se muestran como una sola tarjeta: para que la tarjeta
+    # se ordene bien, todos sus meses llevan el total de la serie.
+    total_serie = {}
+    for f in publicados:
+        if f["Serie"]:
+            k = (f["Area"], f["Serie"])
+            total_serie[k] = total_serie.get(k, 0) + int(f.get("Vistas") or 0)
+    for f in publicados:
+        f["_uso"] = (total_serie[(f["Area"], f["Serie"])] if f["Serie"]
+                     else int(f.get("Vistas") or 0))
+
+    # mas usado primero; lo que no tiene dato de uso queda al final, alfabetico
+    publicados.sort(key=lambda f: (f["Area"], f["Agrupacion"], -f["_uso"], f["Nombre"]))
+
     api_rows = [{
         "Area": f["Area"], "Agrupacion": f["Agrupacion"], "Nombre": f["Nombre"],
         "Link": PLANTILLA_LINK % f["reportId"], "Descripcion": f["Descripcion"],
-        "Origen": "API", "Tipo": "INFORME",
+        "Origen": "API", "Tipo": "INFORME", "Vistas": f["_uso"],
     } for f in publicados]
     tableros = manuales + api_rows
 
@@ -606,6 +667,12 @@ def main():
     print("  Reportes vistos en Power BI ....... %d" % len(descubierto))
     print("  Publicados (Publicar=SI) ......... %d" % len(publicados))
     print("  Links a mano preservados ......... %d" % len(manuales))
+    print("  Areas con datos de uso ........... %s" % (", ".join(con_uso) or "ninguna"))
+    if sin_uso:
+        print("  SIN datos de uso (orden alfabetico): %s" % ", ".join(sin_uso))
+        print("    Para activarlos: en Power BI Service, abri un informe de esa area")
+        print("    de trabajo > Metricas de uso. Power BI crea el modelo y la")
+        print("    proxima corrida ya ordena por uso.")
     print("  Nuevos desde la ultima corrida ... %d" % len(nuevos_ids))
     if duplicados:
         print("  Repetidos en 2 areas de trabajo, publicado 1 ... %d" % len(duplicados))

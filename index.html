@@ -65,6 +65,8 @@
   a.card { text-decoration: none; color: inherit; }
   a.card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); border-color: var(--g-accent, #94a3b8); }
   .card-top { display: flex; align-items: flex-start; gap: 11px; }
+  .group-icon { display: inline-flex; color: var(--g-accent, #475569); }
+  .group-icon svg { width: 20px; height: 20px; }
   .card-icon { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center; font-size: 20px; background: var(--g-tint, #f1f5f9); }
   .card-title { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
   .card-desc { font-size: 13px; color: var(--muted); margin-top: 7px; line-height: 1.4; }
@@ -107,9 +109,12 @@
   }
   .area-btn:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
   .area-icon {
-    width: 62px; height: 62px; border-radius: 16px; display: grid; place-items: center; font-size: 31px; margin-bottom: 4px;
-    background: #eef2f6; background: color-mix(in srgb, var(--a-accent, #334155) 12%, #fff);
+    width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 6px;
+    color: var(--a-accent, #334155);
+    background: #eef2f6; background: color-mix(in srgb, var(--a-accent, #334155) 10%, #fff);
   }
+  .area-icon svg { width: 23px; height: 23px; }
+  .area-icon:empty { display: none; }
   .area-name { font-size: 18px; font-weight: 800; letter-spacing: .01em; }
   .area-desc { font-size: 13px; color: var(--muted); line-height: 1.35; }
   .area-count {
@@ -127,7 +132,8 @@
   }
   .back-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
   .area-bar-title { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; letter-spacing: .01em; }
-  .area-bar-icon { font-size: 20px; }
+  .area-bar-icon { display: inline-flex; color: var(--muted); }
+  .area-bar-icon svg { width: 19px; height: 19px; }
 
   footer { color: var(--muted); font-size: 13px; padding: 20px 24px; border-top: 1px solid var(--border); }
   .footer-inner {
@@ -183,9 +189,20 @@
     const EXCEL_FILE = "LINKS POWER BI.xlsx"; // fuente de la verdad
 
     // Identidad por agrupación (orden de aparición = orden en pantalla)
+    // Iconos de linea, monocromos: heredan el color del acento del area.
+    const IC = {
+      directorio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 21V10l8-6 8 6v11M9 21v-6h6v6"/></svg>',
+      gerencia:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>',
+      jefes:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.5"/><path d="M21 20v-2a4 4 0 0 0-3-3.87"/><path d="M16.5 3.6a4 4 0 0 1 0 7"/></svg>',
+      compras:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+      finanzas:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v5h-5"/></svg>',
+      apps:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>',
+      principal:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.3 9.4l6.1-.8z"/></svg>',
+    };
+
     const GRUPOS = {
       "PRINCIPAL": {
-        accent: "#0F172A", tint: "#e8eaf0", icon: "⭐", logos: []
+        accent: "#0F172A", tint: "#e8eaf0", icon: IC.principal, logos: []
       },
       "HERGO - DISTRIBUCION": {
         accent: "#1B4FE5", tint: "#e9efff",
@@ -196,31 +213,31 @@
         logos: ["assets/logos/menor-coste.png"]
       },
       "FINANZAS": {
-        accent: "#0F766E", tint: "#e0f2f0", icon: "💵", logos: []
+        accent: "#0F766E", tint: "#e0f2f0", icon: IC.finanzas, logos: []
       }
     };
-    const DEFAULT_GRUPO = { accent: "#475569", tint: "#eef2f6", icon: "📊", logos: [] };
+    const DEFAULT_GRUPO = { accent: "#475569", tint: "#eef2f6", icon: "", logos: [] };
 
     // Identidad por ÁREA (pantalla inicial). Orden = primero las definidas acá, luego el resto.
     // icon: emoji que le da personalidad al botón segun lo que es el área.
     const AREAS = {
-      "DIRECTORIO":         { accent: "#8a92d8", icon: "🏛️", desc: "Reportes ejecutivos para el directorio" },
-      "AREAS COMUNES":      { seccion: "apps", accent: "#b48fd6", icon: "🧰", desc: "Apps y portales de uso general" },
-      "PREVENTA":           { seccion: "apps", accent: "#86b0e6", icon: "🛒", desc: "Apps de venta para la fuerza de calle" },
-      "PREVENTA MAYORISTA": { seccion: "apps", accent: "#74c7b8", icon: "🚚", desc: "Portales y apps del canal mayorista" },
-      "DEPOSITO":           { seccion: "apps", accent: "#e3a878", icon: "📦", desc: "Apps de stock y logística de depósito" },
-      "GERENCIA":           { accent: "#9db8d8", icon: "🧭", desc: "Tableros de las gerencias del grupo" },
-      "JEFES":              { accent: "#8fc7a8", icon: "👔", desc: "Tableros operativos para jefaturas" },
-      "COMPRAS":            { accent: "#d8b48f", icon: "🛍️", desc: "Costos, proveedores y surtido" },
-      "FINANZAS":           { accent: "#7fc0b8", icon: "💵", desc: "Cash flow y situación financiera" }
+      "DIRECTORIO":         { accent: "#8a92d8", icon: IC.directorio, desc: "Reportes ejecutivos para el directorio" },
+      "AREAS COMUNES":      { seccion: "apps", accent: "#b48fd6", icon: IC.apps, desc: "Apps y portales de uso general" },
+      "PREVENTA":           { seccion: "apps", accent: "#86b0e6", icon: IC.apps, desc: "Apps de venta para la fuerza de calle" },
+      "PREVENTA MAYORISTA": { seccion: "apps", accent: "#74c7b8", icon: IC.apps, desc: "Portales y apps del canal mayorista" },
+      "DEPOSITO":           { seccion: "apps", accent: "#e3a878", icon: IC.apps, desc: "Apps de stock y logística de depósito" },
+      "GERENCIA":           { accent: "#9db8d8", icon: IC.gerencia, desc: "Tableros de las gerencias del grupo" },
+      "JEFES":              { accent: "#8fc7a8", icon: IC.jefes, desc: "Tableros operativos para jefaturas" },
+      "COMPRAS":            { accent: "#d8b48f", icon: IC.compras, desc: "Costos, proveedores y surtido" },
+      "FINANZAS":           { accent: "#7fc0b8", icon: IC.finanzas, desc: "Cash flow y situación financiera" }
     };
-    const DEFAULT_AREA = { accent: "#475569", icon: "📂", desc: "" };
+    const DEFAULT_AREA = { accent: "#475569", icon: "", desc: "" };
 
     // Las areas marcadas seccion:"apps" no se muestran sueltas en la pantalla
     // inicial: se juntan todas en un unico acceso, para que el foco quede en los
     // informes. Adentro se separan por area, que pasa a ser la categoria.
     const APPS_AREA = "APLICACIONES Y HERRAMIENTAS";
-    const APPS_CFG  = { accent: "#b48fd6", icon: "🧰",
+    const APPS_CFG  = { accent: "#5b6b8c", icon: IC.apps,
                         desc: "Portales, apps y herramientas del grupo" };
     const esAreaApp = (a) => (AREAS[a] || {}).seccion === "apps";
 
@@ -351,7 +368,7 @@
       for (const a of areas) {
         const ac = areaCfg(a);
         html += `<a class="area-btn" href="#/area/${encodeURIComponent(a)}" style="--a-accent:${ac.accent}">
-          <div class="area-icon">${ac.icon || "📂"}</div>
+          <div class="area-icon">${ac.icon}</div>
           <div class="area-name">${esc(a)}</div>
           ${ac.desc ? `<div class="area-desc">${esc(ac.desc)}</div>` : ""}
         </a>`;
@@ -375,7 +392,7 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             Áreas
           </a>
-          <span class="area-bar-title"><span class="area-bar-icon">${ac.icon || "📂"}</span>${esc(area)}</span>
+          <span class="area-bar-title"><span class="area-bar-icon">${ac.icon}</span>${esc(area)}</span>
         </div>
         <div id="groups"></div>`;
       renderGroups(cardsDeArea(area), query, area === APPS_AREA ? "area" : "grupo");
@@ -414,7 +431,8 @@
         const logosHtml = (c.logos || []).map(src => `<img src="${src}" alt="${esc(grupo)}" />`).join("");
         html += `<section class="group" style="--g-accent:${c.accent};--g-tint:${c.tint}">
           <div class="group-head">
-            ${logosHtml ? `<span class="group-logos">${logosHtml}</span>` : ""}
+            ${logosHtml ? `<span class="group-logos">${logosHtml}</span>`
+              : c.icon ? `<span class="group-icon">${c.icon}</span>` : ""}
             <span class="group-name">${esc(grupo)}</span>
             <span class="chip">${cards.length}</span>
           </div>
@@ -435,7 +453,7 @@
     }
 
     function iconFor(c, cfgGrupo) {
-      return `<div class="card-icon">${cfgGrupo.icon ? cfgGrupo.icon : "📊"}</div>`;
+      return "";   // el titulo alcanza: un icono igual en cada tarjeta es ruido
     }
 
     function singleCard(card, c) {
