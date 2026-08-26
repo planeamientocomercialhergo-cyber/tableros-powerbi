@@ -66,6 +66,13 @@ FABRIC_API = "https://api.fabric.microsoft.com/v1"
 # Formato exacto de los links que ya venias usando (secure embed, sin edicion).
 PLANTILLA_LINK = "https://app.powerbi.com/reportEmbed?reportId=%s&autoAuth=true"
 
+
+def link_de(rid, extra=""):
+    """Link secure-embed del informe, con los parametros extra de la config."""
+    url = PLANTILLA_LINK % rid
+    extra = str(extra or "").strip().lstrip("&?")
+    return url + "&" + extra if extra else url
+
 COLS_TABLEROS = ["Area", "Agrupacion", "Nombre", "Link", "Descripcion", "Origen",
                  "Tipo",    # INFORME o APP: define el boton y el conteo
                  "Vistas"]  # vistas de los ultimos meses, para ordenar
@@ -441,6 +448,7 @@ def main():
                    for x in rep_cfg}
     replicar = {norm(k): v for k, v in rep_cfg.items()}
     excluir_upn = tuple(norm(x) for x in cfg.get("excluir_usuarios", []) if str(x).strip())
+    extra_embed = cfg.get("parametros_embed", "")
     como_informe = {norm(x) for x in cfg.get("tratar_como_informe", [])}
     reglas_agr = [(norm(k), v) for k, v in cfg.get("agrupacion_por_nombre", {}).items()]
     meses_max = int(cfg.get("meses_max", 12))  # 0 = sin tope
@@ -701,7 +709,8 @@ def main():
 
     api_rows = [{
         "Area": f["Area"], "Agrupacion": f["Agrupacion"], "Nombre": f["Nombre"],
-        "Link": PLANTILLA_LINK % f["reportId"], "Descripcion": f["Descripcion"],
+        "Link": link_de(f["reportId"], extra_embed),
+        "Descripcion": f["Descripcion"],
         "Origen": "API", "Tipo": "INFORME", "Vistas": f["_uso"],
     } for f in publicados]
     tableros = manuales + api_rows
@@ -757,7 +766,14 @@ def main():
     if args.dry_run:
         print("\nDRY-RUN: no escribi nada.")
         return 0
-    escribir(salida, tableros, catalogo, nuevos_ids)
+    try:
+        escribir(salida, tableros, catalogo, nuevos_ids)
+    except PermissionError:
+        print("")
+        print("ERROR: no puedo escribir '%s'." % os.path.basename(salida))
+        print("  Casi seguro lo tenes abierto en Excel. Cerralo y volve a correr.")
+        print("  (No se modifico nada: el tablero quedo como estaba.)")
+        return 3
     print("\nListo: %s  (%d filas en Tableros, %d en Catalogo)"
           % (os.path.basename(salida), len(tableros), len(catalogo)))
     return 0

@@ -97,10 +97,7 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ===== Pantalla inicial de áreas ===== */
-  .areas-intro { text-align: center; margin: 22px 0 32px; }
-  .areas-intro h2 { font-size: 23px; font-weight: 800; letter-spacing: -.02em; }
-  .areas-intro p { color: var(--muted); margin-top: 6px; font-size: 15px; }
-  .areas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; max-width: 780px; margin: 0 auto; }
+  .areas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; max-width: 780px; margin: 26px auto 0; }
   .area-btn {
     display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px;
     background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--a-accent, #334155);
@@ -364,7 +361,7 @@
     function renderLanding() {
       document.getElementById("count").textContent = "";
       const areas = areaList();
-      let html = `<div class="areas-intro"><h2>¿A qué área querés entrar?</h2><p>Elegí un área para ver sus tableros.</p></div><div class="areas-grid">`;
+      let html = `<div class="areas-grid">`;
       for (const a of areas) {
         const ac = areaCfg(a);
         html += `<a class="area-btn" href="#/area/${encodeURIComponent(a)}" style="--a-accent:${ac.accent}">

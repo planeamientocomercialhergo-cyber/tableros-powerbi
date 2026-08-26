@@ -54,6 +54,9 @@
     "SEGUIMIENTO DE OBJETIVOS"
   ],
 
+  "_parametros_embed": "Se agrega al final de cada link de Power BI. Vacio = como esta hoy. Utiles: filterPaneEnabled=false (esconde el panel de filtros), navContentPaneEnabled=false (esconde las pestanas de pagina, ojo con los informes de varias paginas).",
+  "parametros_embed": "",
+
   "_excluir_usuarios": "Cuentas cuyas vistas NO cuentan para ordenar. Poner la propia evita que los informes que uno mas toca queden arriba por su propio uso. Coincide por texto contenido en el UserPrincipalName.",
   "excluir_usuarios": [
     "administracion01@"
