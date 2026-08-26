@@ -25,9 +25,9 @@ Reglas
 
 Uso
 ---
-  python sincronizar_powerbi.py                 # escribe "LINKS POWER BI _test.xlsx"
-  python sincronizar_powerbi.py --dry-run       # solo informa, no escribe nada
-  python sincronizar_powerbi.py --salida "LINKS POWER BI.xlsx"   # a produccion
+  python sincronizar_powerbi.py            # actualiza "LINKS POWER BI.xlsx"
+  python sincronizar_powerbi.py --dry-run  # solo informa, no escribe nada
+  python sincronizar_powerbi.py --test     # trabaja sobre el _test, no toca produccion
 
 Auth: reutiliza la sesion device-code del orquestador
 (Scripts/orquestador/.pbi_token.json). Si el refresh token vencio, hay que
@@ -50,6 +50,8 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(AQUI, "powerbi_areas.json")
+EXCEL = "LINKS POWER BI.xlsx"            # el que lee index.html
+EXCEL_TEST = "LINKS POWER BI _test.xlsx"  # banco de pruebas, no se publica
 TOKEN_ORQUESTADOR = r"H:\Automatizacion de reportes\Scripts\orquestador\.pbi_token.json"
 
 PBI_CLIENT_ID = "1db21c69-6970-4590-ba27-6b41cd555b4e"
@@ -412,9 +414,12 @@ def escribir(path, tableros, catalogo, nuevos_ids):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--entrada", default="LINKS POWER BI _test.xlsx",
-                    help="Excel a leer. Si no existe, arranca de 'LINKS POWER BI.xlsx'.")
-    ap.add_argument("--salida", default="LINKS POWER BI _test.xlsx")
+    ap.add_argument("--entrada", default=EXCEL,
+                    help="Excel a leer.")
+    ap.add_argument("--salida", default=EXCEL,
+                    help="Excel a escribir.")
+    ap.add_argument("--test", action="store_true",
+                    help="Trabaja sobre '%s' y no toca produccion." % EXCEL_TEST)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--publicar-area", default="",
                     help="Marca Publicar=SI a todo lo que esta sin decidir en "
@@ -444,9 +449,14 @@ def main():
     # Catalogo sirve para EXCLUIR con NO. "" = al reves, hay que tildar cada uno.
     todo_por_defecto = norm(cfg.get("publicar_nuevos", "SI")) == "si"
 
+    # --test redirige todo al Excel de prueba, sin tocar produccion
+    if args.test:
+        args.entrada = EXCEL_TEST if os.path.isfile(
+            os.path.join(AQUI, EXCEL_TEST)) else EXCEL
+        args.salida = EXCEL_TEST
     entrada = os.path.join(AQUI, args.entrada)
     if not os.path.isfile(entrada):
-        entrada = os.path.join(AQUI, "LINKS POWER BI.xlsx")
+        entrada = os.path.join(AQUI, EXCEL)
     salida = os.path.join(AQUI, args.salida)
     print("Entrada: %s" % os.path.basename(entrada))
     print("Salida : %s%s" % (os.path.basename(salida),
