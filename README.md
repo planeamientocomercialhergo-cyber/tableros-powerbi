@@ -118,13 +118,24 @@ Para ver qué haría sin escribir nada: `python sincronizar_powerbi.py --dry-run
 | **Cambia la URL de una app replicada** | Editás **una sola** fila; el script actualiza las 5 copias. |
 | **Sumás un área de trabajo de Power BI** | Una línea en `areas` dentro de `powerbi_areas.json`. |
 
-El ciclo completo es siempre el mismo:
+### Para actualizar todo: un solo comando
 
 ```powershell
-sincronizar.bat        # trae Power BI al Excel de prueba
-                       # (mirás index_test.html si querés revisar)
-actualizar.bat         # commit + push -> Vercel republica
+publicar.bat
 ```
+
+Sincroniza contra Power BI y publica en Vercel, en un paso. Si la
+sincronización falla **no publica nada** — mejor dejar el tablero como estaba
+que subir un Excel a medio armar.
+
+| Comando | Para qué |
+|---|---|
+| `publicar.bat` | Sincroniza **y** publica. El de todos los días. |
+| `python publicar.py --solo-sync` | Sincroniza y no publica, para revisar el Excel antes. |
+| `python publicar.py --dry-run` | No escribe ni publica: solo informa qué haría. |
+| `sincronizar.bat` | Solo sincroniza el Excel. |
+| `actualizar.bat` | Solo publica lo que haya (sirve si editaste el Excel a mano). |
+| `python sincronizar_powerbi.py --test` | Trabaja sobre `LINKS POWER BI _test.xlsx`, sin tocar producción. |
 
 ### Si borro un informe de Power BI, ¿se borra del tablero?
 
