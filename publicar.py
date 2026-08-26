@@ -10,12 +10,18 @@ Hace, en orden:
 Si el paso 1 falla, NO publica nada: es mejor dejar el tablero como estaba que
 subir un Excel a medio armar.
 
+Se puede correr desde cualquier carpeta (por ejemplo desde el orquestador): la
+carpeta del proyecto se resuelve sola, y antes de tocar git se verifica que el
+repo sea el del tablero. Si no lo es, corta. Asi no hay forma de commitear por
+error en otro repositorio.
+
 Uso
 ---
   python publicar.py                 # sincroniza y publica
   python publicar.py --solo-sync     # sincroniza y NO publica (para revisar antes)
   python publicar.py --dry-run       # no escribe ni publica: solo informa
   python publicar.py -m "texto"      # mensaje de commit propio
+  python publicar.py --proyecto RUTA # apunta a otra copia del proyecto
 """
 import argparse
 import os
@@ -25,13 +31,33 @@ import sys
 from datetime import datetime
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
-SYNC = os.path.join(AQUI, "sincronizar_powerbi.py")
+
+# Ruta UNC, no "H:\...": el orquestador puede correr bajo una cuenta que no
+# tenga la unidad mapeada. H: es \\layla\Documentos.
+PROYECTO_DEFECTO = (r"\\layla\Documentos\Automatizacion de reportes"
+                    r"\PowerBI\Links POWER BI")
+
+# Salvaguarda: el repo del tablero y ninguno mas.
+REPO_ESPERADO = "tableros-powerbi"
 
 
-def git(*args, **kw):
+def resolver_proyecto(indicado):
+    """Devuelve la carpeta del proyecto, probando en orden:
+    --proyecto, la variable LINKS_PBI_DIR, la carpeta de este script, y por
+    ultimo la ruta UNC de siempre."""
+    for cand in (indicado,
+                 os.environ.get("LINKS_PBI_DIR"),
+                 AQUI,
+                 PROYECTO_DEFECTO):
+        if cand and os.path.isfile(os.path.join(cand, "sincronizar_powerbi.py")):
+            return os.path.abspath(cand)
+    return None
+
+
+def git(carpeta, *args):
     """Corre git en la carpeta del proyecto. Devuelve (codigo, salida)."""
-    r = subprocess.run(("git",) + args, cwd=AQUI, capture_output=True,
-                       text=True, encoding="utf-8", errors="replace", **kw)
+    r = subprocess.run(("git",) + args, cwd=carpeta, capture_output=True,
+                       text=True, encoding="utf-8", errors="replace")
     return r.returncode, (r.stdout or "") + (r.stderr or "")
 
 
@@ -42,6 +68,25 @@ def titulo(txt):
     print("=" * 64)
 
 
+def repo_correcto(carpeta):
+    """True si esa carpeta es el repo del tablero. Evita commitear en otro."""
+    cod, raiz = git(carpeta, "rev-parse", "--show-toplevel")
+    if cod != 0:
+        print("ERROR: '%s' no es un repositorio git." % carpeta)
+        return False
+    cod, remoto = git(carpeta, "remote", "get-url", "origin")
+    if cod != 0:
+        print("ERROR: el repo no tiene remoto 'origin'.")
+        return False
+    if REPO_ESPERADO not in remoto:
+        print("ERROR: me niego a publicar, el repo no es el del tablero.")
+        print("  carpeta : " + raiz.strip())
+        print("  origin  : " + remoto.strip())
+        print("  esperaba: algo que contenga '%s'" % REPO_ESPERADO)
+        return False
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--solo-sync", action="store_true",
@@ -50,16 +95,28 @@ def main():
                     help="No escribe el Excel ni publica.")
     ap.add_argument("-m", "--mensaje", default="",
                     help="Mensaje de commit. Por defecto lleva la fecha.")
+    ap.add_argument("--proyecto", default="",
+                    help="Carpeta del proyecto, si no es la de este script.")
     args = ap.parse_args()
 
-    if not os.path.isfile(SYNC):
-        print("ERROR: no encuentro sincronizar_powerbi.py al lado de este script.")
+    proyecto = resolver_proyecto(args.proyecto)
+    if not proyecto:
+        print("ERROR: no encuentro la carpeta del proyecto.")
+        print("  Busque 'sincronizar_powerbi.py' en:")
+        for c in (args.proyecto, os.environ.get("LINKS_PBI_DIR"),
+                  AQUI, PROYECTO_DEFECTO):
+            if c:
+                print("    - " + c)
+        print("  Pasa la ruta con --proyecto o la variable LINKS_PBI_DIR.")
         return 1
+    print("Proyecto: " + proyecto)
 
     # ---- 1. sincronizar ----------------------------------------------------
     titulo("1/2  Sincronizando los links de Power BI")
-    cmd = [sys.executable, SYNC] + (["--dry-run"] if args.dry_run else [])
-    proc = subprocess.run(cmd, cwd=AQUI, capture_output=True,
+    cmd = [sys.executable, os.path.join(proyecto, "sincronizar_powerbi.py")]
+    if args.dry_run:
+        cmd.append("--dry-run")
+    proc = subprocess.run(cmd, cwd=proyecto, capture_output=True,
                           text=True, encoding="utf-8", errors="replace")
     salida = (proc.stdout or "") + (proc.stderr or "")
     print(salida.rstrip())
@@ -85,12 +142,10 @@ def main():
 
     # ---- 2. publicar -------------------------------------------------------
     titulo("2/2  Publicando en Vercel")
-    cod, _ = git("rev-parse", "--is-inside-work-tree")
-    if cod != 0:
-        print("ERROR: esta carpeta no es un repositorio git.")
+    if not repo_correcto(proyecto):
         return 1
 
-    cod, cambios = git("status", "--porcelain")
+    cod, cambios = git(proyecto, "status", "--porcelain")
     if cod != 0:
         print("ERROR consultando git:\n" + cambios)
         return 1
@@ -99,7 +154,7 @@ def main():
         return 0
 
     print("Cambios detectados:")
-    cod, breve = git("status", "-s")
+    cod, breve = git(proyecto, "status", "-s")
     print(breve.rstrip())
 
     fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -108,7 +163,7 @@ def main():
     for paso, gargs in [("add", ("add", "-A")),
                         ("commit", ("commit", "-m", mensaje)),
                         ("push", ("push",))]:
-        cod, out = git(*gargs)
+        cod, out = git(proyecto, *gargs)
         if cod != 0:
             print("")
             print("ERROR en git %s:" % paso)
