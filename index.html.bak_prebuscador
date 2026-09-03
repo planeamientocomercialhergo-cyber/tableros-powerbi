@@ -344,35 +344,20 @@
       const m = location.hash.match(/^#\/area\/(.+)$/);
       const area = m ? decodeURIComponent(m[1]) : null;
       const search = document.getElementById("search");
-      document.querySelector(".search-wrap").style.display = "";
       if (area && areaList().includes(area)) {
         CURRENT_AREA = area;
-        search.placeholder = "Buscar reporte por nombre o agrupación…";
+        document.querySelector(".search-wrap").style.display = "";
         renderDashboard(area, search.value);
       } else {
         CURRENT_AREA = null;
-        search.placeholder = "Buscar en todas las áreas por nombre o agrupación…";
-        renderLandingOBusqueda(search.value);
+        search.value = "";
+        document.querySelector(".search-wrap").style.display = "none";
+        renderLanding();
       }
       window.scrollTo(0, 0);
     }
 
-    // ===== Pantalla inicial =====
-    // Sin texto en el buscador: los botones de area de siempre.
-    // Con texto: se busca en TODAS las areas y los resultados salen agrupados
-    // por area, asi se ve de una en cual esta cada reporte.
-    function renderLandingOBusqueda(query) {
-      if (!norm(query)) { renderLanding(); return; }
-      document.getElementById("content").innerHTML = '<div id="groups"></div>';
-      renderGroups(cardsGlobales(), query, "area");
-    }
-
-    // Las areas de apps se colapsan al acceso unico, para que el titulo del
-    // resultado coincida con el boton que ve el usuario en la pantalla inicial.
-    function cardsGlobales() {
-      return CARDS.map(c => esAreaApp(c.area) ? { ...c, area: APPS_AREA } : c);
-    }
-
+    // ===== Pantalla inicial: botones por área =====
     function renderLanding() {
       document.getElementById("count").textContent = "";
       const areas = areaList();
@@ -522,7 +507,6 @@
     document.getElementById("search").addEventListener("input", e => {
       if (CURRENT_AREA) renderGroups(cardsDeArea(CURRENT_AREA), e.target.value,
                                      CURRENT_AREA === APPS_AREA ? "area" : "grupo");
-      else renderLandingOBusqueda(e.target.value);
     });
     window.addEventListener("hashchange", route);
     load();
