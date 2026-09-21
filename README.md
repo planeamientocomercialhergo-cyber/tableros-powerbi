@@ -245,6 +245,39 @@ Si la hoja `ACCESOS` no existe, el tablero se abre sin login, como antes.
 `sincronizar_powerbi.py` rearma el Excel en cada corrida pero copia esta hoja
 tal cual: no hace falta recargar los usuarios.
 
+### Las contraseñas: `CLAVES TABLERO.xlsx`
+
+Se gestionan desde un Excel propio que vive **una carpeta mas arriba**:
+
+```
+\\192.168.4.2\Documentos\Automatizacion de reportes\PowerBI\CLAVES TABLERO.xlsx
+```
+
+Esta afuera de `Links POWER BI` a proposito: lo que se publica en Vercel es
+**solo** esa carpeta. Ahi adentro las claves quedarian descargables desde
+internet, asi que el script directamente se niega a leer la planilla si la
+encontras dentro del repo.
+
+El circuito es:
+
+1. Abris `CLAVES TABLERO.xlsx`, hoja **CLAVES**, y escribis la contrasena.
+2. Guardas y cerras.
+3. Doble clic en **`aplicar claves.bat`** -> la convierte en `Salt`/`Hash` y la
+   escribe en la hoja ACCESOS de `LINKS POWER BI.xlsx`.
+4. `publicar.bat`.
+
+Celda vacia = no se toca, asi que se puede cargar de a una. Desde esa misma
+planilla se pueden editar `Nombre` y `Areas` (`NINGUNA` saca todo).
+
+La planilla **nunca** se sube: esta fuera del repo y ademas en `.gitignore`.
+Lo que viaja a Vercel es solo el hash, que no se puede revertir.
+
+Para una sola clave sin abrir Excel: `cambiar clave.bat`, o
+
+```bash
+python gestionar_accesos.py --set administracion04
+```
+
 ### Hasta dónde llega esto
 
 **El filtro por área es cosmético.** El sitio es estático: el Excel completo se

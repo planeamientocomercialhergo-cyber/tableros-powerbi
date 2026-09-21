@@ -42,6 +42,14 @@ from openpyxl.utils import get_column_letter
 AQUI = os.path.dirname(os.path.abspath(__file__))
 EXCEL = os.path.join(AQUI, "LINKS POWER BI.xlsx")
 
+# El Excel donde se gestionan las claves en limpio. Vive UN NIVEL ARRIBA, fuera
+# de la carpeta del repo, y por eso no se publica: lo que se sube a Vercel es
+# solo esta carpeta. Es a proposito y no hay que moverlo adentro.
+CLAVES = os.path.join(os.path.dirname(AQUI), "CLAVES TABLERO.xlsx")
+HOJA_CLAVES = "CLAVES"
+COLS_CLAVES = ["Usuario", "Contrasena", "Nombre", "Areas"]
+ANCHOS_CLAVES = {"Usuario": 20, "Contrasena": 22, "Nombre": 24, "Areas": 46}
+
 HOJA = "ACCESOS"
 COLS = ["Usuario", "Nombre", "Areas", "Iteraciones", "Salt", "Hash"]
 ANCHOS = {"Usuario": 20, "Nombre": 24, "Areas": 46, "Iteraciones": 12,
@@ -151,6 +159,131 @@ def aplicar_clave(fila, clave):
     fila["Salt"], fila["Hash"], fila["Iteraciones"] = salt, h, str(it)
 
 
+def fuera_del_repo(path):
+    """El Excel de claves NO puede estar en la carpeta que se publica.
+
+    Todo lo que hay en esa carpeta termina en Vercel via 'git add -A'. Un
+    archivo con las contrasenas en limpio ahi adentro quedaria descargable
+    desde internet. Antes que confiar en el .gitignore, directamente no se
+    deja trabajar con un archivo que este adentro."""
+    p = os.path.abspath(path)
+    repo = os.path.abspath(AQUI) + os.sep
+    if p.startswith(repo):
+        print("ERROR: '%s' esta DENTRO de la carpeta que se publica." % p)
+        print("  Ese archivo tiene las contrasenas en limpio: ahi adentro se")
+        print("  subiria a Vercel y quedaria publico. Movelo afuera, por ej:")
+        print("  " + CLAVES)
+        return False
+    return True
+
+
+def crear_planilla_claves(path, filas):
+    """Arma el Excel de claves con los usuarios que ya existen.
+
+    La columna Contrasena queda VACIA: las escribe quien las sabe. Vacio
+    significa 'no la toques', asi que se puede cargar de a una sin borrar
+    las demas."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = HOJA_CLAVES
+    ws.append(COLS_CLAVES)
+    for c in range(1, len(COLS_CLAVES) + 1):
+        cel = ws.cell(1, c)
+        cel.font = Font(bold=True, color="FFFFFF")
+        cel.fill = PatternFill("solid", fgColor="1B4FE5")
+        cel.alignment = Alignment(vertical="center")
+    for f in filas:
+        ws.append([f["Usuario"], "", f["Nombre"], f["Areas"]])
+    for c, nombre in enumerate(COLS_CLAVES, start=1):
+        ws.column_dimensions[get_column_letter(c)].width = ANCHOS_CLAVES[nombre]
+    ws.freeze_panes = "A2"
+    # Las instrucciones van en su propia hoja: al pie de CLAVES se leian como
+    # si fueran usuarios y daban de alta dos entradas basura.
+    wl = wb.create_sheet("LEEME")
+    wl.column_dimensions["A"].width = 100
+    for i, linea in enumerate([
+            "COMO SE USA",
+            "",
+            "1. Escribi la contrasena en la columna Contrasena de la hoja CLAVES.",
+            "2. Guarda y cerra este Excel.",
+            "3. Doble clic en 'aplicar claves.bat', en la carpeta Links POWER BI.",
+            "4. Publica el tablero con publicar.bat.",
+            "",
+            "Celda vacia = no se toca, asi que podes cargar de a una.",
+            "En Areas: separa con ; , '*' es ver todo, 'NINGUNA' es no ver nada.",
+            "",
+            "NO muevas este archivo a la carpeta 'Links POWER BI'.",
+            "Esa carpeta se publica entera en internet y las claves quedarian",
+            "descargables por cualquiera. El script se niega a leerlo si esta ahi.",
+    ], start=1):
+        c = wl.cell(i, 1)
+        c.value = linea
+        if i == 1 or linea.startswith("NO muevas"):
+            c.font = Font(bold=True)
+    wb.save(path)
+
+
+def leer_planilla_claves(path):
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb[HOJA_CLAVES] if HOJA_CLAVES in wb.sheetnames else wb.worksheets[0]
+    filas = list(ws.iter_rows(values_only=True))
+    if not filas:
+        return []
+    cab = [str(c or "").strip().lower() for c in filas[0]]
+    idx = {}
+    for c in COLS_CLAVES:
+        # "Contrasena" y "Contraseña" son lo mismo: la ñ se escapa sola.
+        alias = [c.lower()] + (["contraseña", "clave", "password"]
+                               if c == "Contrasena" else [])
+        idx[c] = next((cab.index(a) for a in alias if a in cab), None)
+    out = []
+    for f in filas[1:]:
+        d = {}
+        for c in COLS_CLAVES:
+            i = idx[c]
+            v = f[i] if (i is not None and i < len(f)) else None
+            d[c] = "" if v is None else str(v).strip()
+        # Un usuario nunca lleva espacios: si los tiene es un comentario
+        # suelto en la planilla, no una fila de verdad.
+        if d["Usuario"] and " " not in d["Usuario"]:
+            out.append(d)
+    return out
+
+
+def aplicar_planilla(filas, pedidos):
+    """Vuelca la planilla de claves sobre las filas de la hoja ACCESOS.
+
+    Devuelve (claves_cambiadas, datos_cambiados). Campo vacio = no se toca,
+    para poder cargar de a uno sin pisar el resto."""
+    claves, datos = [], []
+    for p in pedidos:
+        u = norm_usuario(p["Usuario"])
+        f = buscar(filas, u)
+        if not f:
+            f = {"Usuario": u, "Nombre": "", "Areas": "",
+                 "Iteraciones": "", "Salt": "", "Hash": ""}
+            filas.append(f)
+            datos.append(u + " (nuevo)")
+        if p["Contrasena"]:
+            aplicar_clave(f, p["Contrasena"])
+            claves.append(u)
+        if p["Nombre"] and p["Nombre"] != f["Nombre"]:
+            f["Nombre"] = p["Nombre"]
+            datos.append(u + " nombre")
+        # Las areas se comparan contra "" a proposito: dejar la celda vacia
+        # es no tocar, y para sacarle todo se pone la palabra NINGUNA.
+        if p["Areas"]:
+            nuevo = "" if norm(p["Areas"]) == "ninguna" else p["Areas"]
+            if nuevo != f["Areas"]:
+                f["Areas"] = nuevo
+                datos.append(u + " areas")
+    return claves, datos
+
+
+def norm(s):
+    return (s or "").strip().lower()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--excel", default=EXCEL)
@@ -165,6 +298,10 @@ def main():
     ap.add_argument("--borrar", metavar="USUARIO")
     ap.add_argument("--desde-archivo", metavar="RUTA",
                     help="Carga en lote: usuario<TAB>contrasena por linea.")
+    ap.add_argument("--crear-planilla", action="store_true",
+                    help="Arma el Excel de claves, fuera de la carpeta publicada.")
+    ap.add_argument("--desde-planilla", nargs="?", const=CLAVES, metavar="RUTA",
+                    help="Aplica el Excel de claves sobre la hoja ACCESOS.")
     args = ap.parse_args()
 
     filas = leer(args.excel)
@@ -186,6 +323,47 @@ def main():
             print("  Sin contrasena (no pueden entrar): " + ", ".join(sin))
         if vac:
             print("  Sin areas (entran y no ven nada): " + ", ".join(vac))
+        return 0
+
+    if args.crear_planilla:
+        if not fuera_del_repo(CLAVES):
+            return 4
+        if os.path.isfile(CLAVES):
+            print("Ya existe: " + CLAVES)
+            print("  No lo piso para no borrarte lo que tengas cargado.")
+            return 1
+        if not filas:
+            print("No hay hoja ACCESOS todavia. Corre --semilla primero.")
+            return 1
+        crear_planilla_claves(CLAVES, filas)
+        print("Listo: " + CLAVES)
+        print("  %d usuarios, con la columna Contrasena vacia." % len(filas))
+        print("  Escribi las claves ahi y corre 'aplicar claves.bat'.")
+        return 0
+
+    if args.desde_planilla:
+        ruta = args.desde_planilla
+        if not fuera_del_repo(ruta):
+            return 4
+        if not os.path.isfile(ruta):
+            print("ERROR: no encuentro '%s'." % ruta)
+            print("  Crealo con: python gestionar_accesos.py --crear-planilla")
+            return 2
+        pedidos = leer_planilla_claves(ruta)
+        if not pedidos:
+            print("La planilla esta vacia.")
+            return 1
+        claves, datos = aplicar_planilla(filas, pedidos)
+        if not claves and not datos:
+            print("Nada para cambiar: la planilla ya esta aplicada.")
+            return 0
+        escribir(args.excel, filas)
+        if claves:
+            print("Claves actualizadas (%d): %s" % (len(claves), ", ".join(claves)))
+        if datos:
+            print("Datos actualizados: " + ", ".join(datos))
+        print("")
+        print("Para que tome efecto en el tablero: publicar.bat")
         return 0
 
     if args.semilla:
