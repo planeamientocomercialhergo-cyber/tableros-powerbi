@@ -728,6 +728,21 @@
       document.getElementById("usuario").focus();
     }
 
+    // Le pide al navegador que ofrezca guardar la clave.
+    //
+    // Como el login no navega a ningun lado (se hace un preventDefault y se
+    // esconde el cartel), la deteccion automatica del navegador es una loteria.
+    // La API de credenciales lo pide de forma explicita. Donde no existe
+    // (Firefox, Safari) queda la heuristica de siempre, que ahora funciona
+    // porque el campo de la clave ya no se vacia antes de tiempo.
+    async function ofrecerGuardar() {
+      try {
+        if (!window.PasswordCredential || !navigator.credentials) return;
+        const cred = new PasswordCredential(document.getElementById("login-form"));
+        await navigator.credentials.store(cred);
+      } catch (e) { /* si el navegador no quiere, no pasa nada */ }
+    }
+
     // Si no hay hoja ACCESOS, el tablero se comporta como siempre: abierto.
     // Preferible a dejar a todos afuera si alguna vez se pierde la hoja.
     function arrancar() {
@@ -754,8 +769,12 @@
         // Mismo mensaje siempre: no le decimos a nadie que usuarios existen.
         const ok = u && await claveValida(u, cla);
         if (!ok) { err.textContent = "Usuario o contraseña incorrectos."; return; }
-        document.getElementById("clave").value = "";
+        await ofrecerGuardar();
         entrar(u);
+        // El campo se limpia DESPUES de ofrecer guardar y en el tick siguiente:
+        // si se vacia antes, el navegador no encuentra la clave y nunca
+        // pregunta si la quiere recordar.
+        setTimeout(() => { document.getElementById("clave").value = ""; }, 0);
       } catch (ex) {
         err.textContent = "No se pudo verificar: " + ex.message;
       } finally {
