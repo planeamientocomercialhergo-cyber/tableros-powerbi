@@ -154,9 +154,35 @@ def pedir_clave(usuario):
     return a
 
 
+SEP_CLAVES = "|"
+
+
+def partir_claves(txt):
+    """Un usuario puede tener varias claves validas, separadas con '|'.
+
+    Sirve para que entre lo mismo con la clave larga de Power BI o con un PIN
+    corto. Se eligio '|' y no ';' porque el ';' ya separa las areas y porque
+    ninguna clave de la casa lo usa."""
+    if isinstance(txt, (list, tuple)):
+        partes = list(txt)
+    else:
+        partes = str(txt or "").split(SEP_CLAVES)
+    return [p for p in (str(x).strip() for x in partes) if p]
+
+
 def aplicar_clave(fila, clave):
-    salt, h, it = hashear(clave)
-    fila["Salt"], fila["Hash"], fila["Iteraciones"] = salt, h, str(it)
+    """Guarda una sal y un hash por cada clave valida, separados con ';'.
+
+    Van en la misma celda: el base64 nunca trae ';', asi que no hace falta
+    agregar columnas y las hojas viejas de una sola clave siguen andando."""
+    salts, hashes = [], []
+    for c in partir_claves(clave):
+        s, h, it = hashear(c)
+        salts.append(s)
+        hashes.append(h)
+    fila["Salt"] = ";".join(salts)
+    fila["Hash"] = ";".join(hashes)
+    fila["Iteraciones"] = str(ITERACIONES)
 
 
 def fuera_del_repo(path):
@@ -312,9 +338,10 @@ def main():
             return 0
         print("%-20s %-24s %-8s %s" % ("USUARIO", "NOMBRE", "CLAVE", "AREAS"))
         for f in filas:
+            n = len([x for x in f["Hash"].split(";") if x.strip()])
             print("%-20s %-24s %-8s %s" % (
                 f["Usuario"], f["Nombre"] or "-",
-                "si" if f["Hash"] else "SIN",
+                ("si" if n == 1 else "si (%d)" % n) if n else "SIN",
                 f["Areas"] or "(ninguna)"))
         sin = [f["Usuario"] for f in filas if not f["Hash"]]
         vac = [f["Usuario"] for f in filas if not f["Areas"]]

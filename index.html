@@ -679,6 +679,20 @@
       return bytesAB64(new Uint8Array(bits));
     }
 
+    // Un usuario puede tener mas de una clave valida: Salt y Hash traen los
+    // pares separados por ';' y alcanza con que coincida cualquiera. Asi la
+    // misma cuenta entra con la clave larga de Power BI o con un PIN corto.
+    async function claveValida(u, clave) {
+      const salts = (u.salt || "").split(";").map(s => s.trim()).filter(Boolean);
+      const hashes = (u.hash || "").split(";").map(s => s.trim()).filter(Boolean);
+      for (let i = 0; i < Math.min(salts.length, hashes.length); i++) {
+        try {
+          if (await pbkdf2(clave, salts[i], u.iters) === hashes[i]) return true;
+        } catch (e) { /* sal invalida: probamos la siguiente */ }
+      }
+      return false;
+    }
+
     // "" = ninguna, "*" = todas, "A;B" = esas dos.
     function parsearAreas(txt) {
       const t = (txt || "").trim();
@@ -738,8 +752,7 @@
       try {
         const u = USUARIOS.find(x => x.usuario === usr);
         // Mismo mensaje siempre: no le decimos a nadie que usuarios existen.
-        const ok = u && u.hash && u.salt &&
-                   (await pbkdf2(cla, u.salt, u.iters)) === u.hash;
+        const ok = u && await claveValida(u, cla);
         if (!ok) { err.textContent = "Usuario o contraseña incorrectos."; return; }
         document.getElementById("clave").value = "";
         entrar(u);

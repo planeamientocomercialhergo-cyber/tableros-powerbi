@@ -266,6 +266,16 @@ El circuito es:
    escribe en la hoja ACCESOS de `LINKS POWER BI.xlsx`.
 4. `publicar.bat`.
 
+**Varias claves para el mismo usuario:** separalas con `|` en la celda
+Contrasena. Por ejemplo `Hergo*2024.|9526` deja entrar con cualquiera de las
+dos, indistintamente. Sirve para tener la clave larga de Power BI y un PIN
+corto para el celular. Se guarda una sal y un hash por cada una.
+
+Ojo con los PIN cortos: el hash se publica, y probar 10.000 numeros de cuatro
+cifras contra el es cuestion de un rato. Para este tablero da lo mismo (el
+filtro ya es cosmetico y lo que protege los informes es Power BI), pero no
+reuses ese PIN para nada serio.
+
 Celda vacia = no se toca, asi que se puede cargar de a una. Desde esa misma
 planilla se pueden editar `Nombre` y `Areas` (`NINGUNA` saca todo).
 
