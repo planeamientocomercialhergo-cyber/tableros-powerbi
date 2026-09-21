@@ -266,6 +266,10 @@ El circuito es:
    escribe en la hoja ACCESOS de `LINKS POWER BI.xlsx`.
 4. `publicar.bat`.
 
+**Sumar una clave sin volver a escribir la otra:** doble clic en
+`agregar clave.bat`, o `python gestionar_accesos.py --agregar-clave directorio`.
+Para volver atras y dejar solo la original: `--quitar-claves directorio`.
+
 **Varias claves para el mismo usuario:** separalas con `|` en la celda
 Contrasena. Por ejemplo `Hergo*2024.|9526` deja entrar con cualquiera de las
 dos, indistintamente. Sirve para tener la clave larga de Power BI y un PIN

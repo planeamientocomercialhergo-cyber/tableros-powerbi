@@ -185,6 +185,27 @@ def aplicar_clave(fila, clave):
     fila["Iteraciones"] = str(ITERACIONES)
 
 
+def sumar_clave(fila, clave):
+    """Agrega una clave mas a las que el usuario ya tiene.
+
+    Distinto de aplicar_clave, que reemplaza todas. Sirve para sumar un PIN
+    corto sin tener que volver a escribir la clave larga."""
+    s, h, it = hashear(clave)
+    salts = [x for x in fila["Salt"].split(";") if x.strip()]
+    hashes = [x for x in fila["Hash"].split(";") if x.strip()]
+    # Las viejas se recalcularon con estas iteraciones o no validarian: si la
+    # hoja venia con otro valor, se respeta el que ya estaba.
+    if hashes and fila["Iteraciones"] and int(fila["Iteraciones"]) != it:
+        s, h, _ = hashear(clave, iters=int(fila["Iteraciones"]))
+    else:
+        fila["Iteraciones"] = str(it)
+    salts.append(s)
+    hashes.append(h)
+    fila["Salt"] = ";".join(salts)
+    fila["Hash"] = ";".join(hashes)
+    return len(hashes)
+
+
 def fuera_del_repo(path):
     """El Excel de claves NO puede estar en la carpeta que se publica.
 
@@ -324,6 +345,10 @@ def main():
     ap.add_argument("--borrar", metavar="USUARIO")
     ap.add_argument("--desde-archivo", metavar="RUTA",
                     help="Carga en lote: usuario<TAB>contrasena por linea.")
+    ap.add_argument("--agregar-clave", metavar="USUARIO",
+                    help="Suma una clave mas, sin tocar las que ya tiene.")
+    ap.add_argument("--quitar-claves", metavar="USUARIO",
+                    help="Deja solo la primera clave del usuario.")
     ap.add_argument("--crear-planilla", action="store_true",
                     help="Arma el Excel de claves, fuera de la carpeta publicada.")
     ap.add_argument("--desde-planilla", nargs="?", const=CLAVES, metavar="RUTA",
@@ -350,6 +375,36 @@ def main():
             print("  Sin contrasena (no pueden entrar): " + ", ".join(sin))
         if vac:
             print("  Sin areas (entran y no ven nada): " + ", ".join(vac))
+        return 0
+
+    if args.agregar_clave:
+        u = norm_usuario(args.agregar_clave)
+        f = buscar(filas, u)
+        if not f:
+            print("No existe '%s'. Crealo con --set." % u)
+            return 1
+        if not f["Hash"]:
+            print("'%s' no tiene ninguna clave todavia. Usa --set." % u)
+            return 1
+        clave = pedir_clave(u)
+        if not clave:
+            return 0
+        n = sumar_clave(f, clave)
+        escribir(args.excel, filas)
+        print("'%s' ahora entra con %d claves distintas." % (u, n))
+        print("Para que tome efecto en el tablero: publicar.bat")
+        return 0
+
+    if args.quitar_claves:
+        u = norm_usuario(args.quitar_claves)
+        f = buscar(filas, u)
+        if not f:
+            print("No existe '%s'." % u)
+            return 1
+        f["Salt"] = f["Salt"].split(";")[0]
+        f["Hash"] = f["Hash"].split(";")[0]
+        escribir(args.excel, filas)
+        print("'%s' quedo con una sola clave: la primera que tenia." % u)
         return 0
 
     if args.crear_planilla:
