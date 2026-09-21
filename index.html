@@ -139,6 +139,41 @@
   .rtm-mark { height: 44px; width: auto; opacity: .5; filter: grayscale(.3); transition: opacity .2s ease, filter .2s ease; }
   .rtm-mark:hover { opacity: 1; filter: none; }
 
+  /* ===== Login ===== */
+  #login {
+    position: fixed; inset: 0; z-index: 90; display: none; place-items: center;
+    background: linear-gradient(135deg, #0b1220 0%, #1e293b 55%, #334155 100%);
+    padding: 24px;
+  }
+  #login.on { display: grid; }
+  .login-card {
+    width: 100%; max-width: 372px; background: var(--surface); border-radius: 16px;
+    padding: 30px 28px 26px; box-shadow: 0 24px 60px rgba(0,0,0,.4);
+  }
+  .login-card h2 { font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+  .login-card .sub { color: var(--muted); font-size: 13px; margin: 5px 0 20px; }
+  .login-card label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .04em; }
+  .login-card input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px;
+    font-size: 14px; outline: none; margin-bottom: 14px; font-family: inherit;
+  }
+  .login-card input:focus { border-color: #1B4FE5; box-shadow: 0 0 0 3px rgba(27,79,229,.15); }
+  .login-card button {
+    width: 100%; padding: 11px; border: none; border-radius: 9px; background: #0f172a;
+    color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .login-card button:hover { background: #1e293b; }
+  .login-card button:disabled { opacity: .55; cursor: default; }
+  .login-err { color: #b91c1c; font-size: 13px; margin-top: 13px; min-height: 18px; }
+  .user-chip { display: inline-flex; align-items: center; gap: 9px; font-size: 12.5px; color: #cbd5e1; }
+  .user-chip[hidden] { display: none; }
+  .user-chip strong { color: #fff; font-weight: 700; }
+  .user-chip button {
+    border: 1px solid rgba(255,255,255,.28); background: transparent; color: #cbd5e1;
+    border-radius: 999px; padding: 3px 11px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .user-chip button:hover { background: rgba(255,255,255,.12); color: #fff; }
+
   @media (max-width: 640px) {
     header { padding: 26px 18px 22px; }
     .logos-strip { gap: 18px; }
@@ -149,6 +184,20 @@
 </style>
 </head>
 <body>
+  <div id="login">
+    <form class="login-card" id="login-form" autocomplete="on">
+      <h2>Apps y tableros</h2>
+      <p class="sub">Entra con tu cuenta de Power BI.</p>
+      <label for="usuario">Usuario</label>
+      <input id="usuario" name="username" type="text" autocomplete="username"
+             placeholder="directorio" autocapitalize="off" spellcheck="false" />
+      <label for="clave">Contrase&ntilde;a</label>
+      <input id="clave" name="password" type="password" autocomplete="current-password" />
+      <button type="submit" id="login-btn">Entrar</button>
+      <div class="login-err" id="login-err"></div>
+    </form>
+  </div>
+
   <header>
     <div class="header-inner">
       <div class="title-block">
@@ -156,6 +205,10 @@
         <p>Acceso rápido a todas las herramientas de la empresa</p>
       </div>
       <div class="logos-strip">
+        <span class="user-chip" id="user-chip" hidden>
+          <strong id="user-nombre"></strong>
+          <button type="button" id="salir">Salir</button>
+        </span>
         <img src="assets/logos/white-hergo.png" alt="Hergo" />
         <img src="assets/logos/white-alta.png" alt="Alta" class="tall" />
         <img src="assets/logos/white-mc.png" alt="Menor Coste" />
@@ -248,6 +301,9 @@
     let CARDS = [];          // tarjetas resueltas (simples + mensuales)
     let CURRENT_AREA = null; // área seleccionada (null = pantalla inicial)
     const MONTHLY_STORE = {}; // id -> versiones, para el menú desplegable
+    let ITEMS = [];          // todo el Excel, antes de filtrar por usuario
+    let USUARIOS = [];       // hoja ACCESOS
+    let SESION = null;       // { usuario, nombre, areas } · areas null = todas
 
     async function load() {
       try {
@@ -256,6 +312,7 @@
         const wb = XLSX.read(await res.arrayBuffer(), { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        USUARIOS = leerAccesos(wb);
 
         const items = rows.map(r => ({
           area:   (pick(r, ["area"]) || "GENERAL").toString().trim(),
@@ -266,8 +323,8 @@
           tipo:   norm(pick(r, ["tipo"])),
         })).filter(t => t.nombre && t.url);
 
-        CARDS = buildCards(items);
-        route();
+        ITEMS = items;
+        arrancar();
       } catch (e) {
         document.getElementById("content").innerHTML =
           `<div class="state"><h3>No se pudieron cargar los tableros</h3>` +
@@ -518,6 +575,131 @@
         });
       });
     }
+
+    // ===== Usuarios y areas =================================================
+    // La hoja ACCESOS del mismo Excel dice quien entra y que areas ve.
+    // La contraseña no esta guardada en ningun lado: solo el PBKDF2 con su sal,
+    // que se recalcula aca y se compara.
+    //
+    // ATENCION: esto es un filtro de VISTA, no una barrera. El sitio es
+    // estatico y el Excel completo se publica igual, asi que quien lo baje a
+    // mano ve todos los links. Lo que realmente protege cada informe es el
+    // login de Power BI. Para esconderlos de verdad haria falta un backend
+    // (funcion serverless) que sirva el Excel ya recortado.
+
+    const normUser = (u) => (u ?? "").toString().trim().toLowerCase().split("@")[0];
+
+    function leerAccesos(wb) {
+      const nombre = wb.SheetNames.find(n => norm(n) === "accesos");
+      if (!nombre) return [];
+      return XLSX.utils.sheet_to_json(wb.Sheets[nombre], { defval: "" })
+        .map(r => ({
+          usuario: normUser(pick(r, ["usuario", "user"])),
+          nombre:  pick(r, ["nombre"]).toString().trim(),
+          areas:   pick(r, ["areas", "area"]).toString().trim(),
+          iters:   parseInt(pick(r, ["iteraciones"]), 10) || 200000,
+          salt:    pick(r, ["salt", "sal"]).toString().trim(),
+          hash:    pick(r, ["hash"]).toString().trim(),
+        }))
+        .filter(u => u.usuario);
+    }
+
+    function b64aBytes(s) {
+      const bin = atob(s);
+      const a = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+      return a;
+    }
+    function bytesAB64(a) {
+      let s = ""; for (const b of a) s += String.fromCharCode(b); return btoa(s);
+    }
+
+    async function pbkdf2(clave, saltB64, iters) {
+      const k = await crypto.subtle.importKey(
+        "raw", new TextEncoder().encode(clave), "PBKDF2", false, ["deriveBits"]);
+      const bits = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt: b64aBytes(saltB64), iterations: iters, hash: "SHA-256" },
+        k, 256);
+      return bytesAB64(new Uint8Array(bits));
+    }
+
+    // "" = ninguna, "*" = todas, "A;B" = esas dos.
+    function parsearAreas(txt) {
+      const t = (txt || "").trim();
+      if (t === "*") return null;
+      return t.split(/[;,]/).map(s => s.trim().toUpperCase()).filter(Boolean);
+    }
+    const permitido = (area) =>
+      !SESION || !SESION.areas || SESION.areas.includes((area || "").toUpperCase());
+
+    function entrar(u) {
+      SESION = { usuario: u.usuario,
+                 nombre: u.nombre || u.usuario,
+                 areas: parsearAreas(u.areas) };
+      try { sessionStorage.setItem("pbi_user", SESION.usuario); } catch (e) {}
+      document.getElementById("login").classList.remove("on");
+      document.getElementById("user-chip").hidden = false;
+      document.getElementById("user-nombre").textContent = SESION.nombre;
+      aplicarSesion();
+    }
+
+    function aplicarSesion() {
+      CARDS = buildCards(ITEMS.filter(it => permitido(it.area)));
+      route();
+      if (SESION && SESION.areas && !CARDS.length) {
+        document.getElementById("content").innerHTML =
+          `<div class="state"><h3>No tenés áreas asignadas</h3>` +
+          `<p>Pedí que te carguen las áreas en la hoja ACCESOS del Excel.</p></div>`;
+      }
+    }
+
+    function mostrarLogin() {
+      document.getElementById("login").classList.add("on");
+      document.getElementById("usuario").focus();
+    }
+
+    // Si no hay hoja ACCESOS, el tablero se comporta como siempre: abierto.
+    // Preferible a dejar a todos afuera si alguna vez se pierde la hoja.
+    function arrancar() {
+      if (!USUARIOS.length) { CARDS = buildCards(ITEMS); route(); return; }
+      let guardado = "";
+      try { guardado = normUser(sessionStorage.getItem("pbi_user")); } catch (e) {}
+      const u = guardado && USUARIOS.find(x => x.usuario === guardado);
+      if (u) entrar(u); else mostrarLogin();
+    }
+
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const err = document.getElementById("login-err");
+      const btn = document.getElementById("login-btn");
+      const usr = normUser(document.getElementById("usuario").value);
+      const cla = document.getElementById("clave").value;
+      err.textContent = "";
+      if (!window.crypto || !crypto.subtle) {
+        err.textContent = "Abrí el tablero por https, no como archivo local.";
+        return;
+      }
+      btn.disabled = true; btn.textContent = "Verificando…";
+      try {
+        const u = USUARIOS.find(x => x.usuario === usr);
+        // Mismo mensaje siempre: no le decimos a nadie que usuarios existen.
+        const ok = u && u.hash && u.salt &&
+                   (await pbkdf2(cla, u.salt, u.iters)) === u.hash;
+        if (!ok) { err.textContent = "Usuario o contraseña incorrectos."; return; }
+        document.getElementById("clave").value = "";
+        entrar(u);
+      } catch (ex) {
+        err.textContent = "No se pudo verificar: " + ex.message;
+      } finally {
+        btn.disabled = false; btn.textContent = "Entrar";
+      }
+    });
+
+    document.getElementById("salir").addEventListener("click", () => {
+      try { sessionStorage.removeItem("pbi_user"); } catch (e) {}
+      location.hash = "";
+      location.reload();
+    });
 
     document.getElementById("search").addEventListener("input", e => {
       if (CURRENT_AREA) renderGroups(cardsDeArea(CURRENT_AREA), e.target.value,

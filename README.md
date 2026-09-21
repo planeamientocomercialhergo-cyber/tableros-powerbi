@@ -214,3 +214,47 @@ secretos en esta carpeta ni en el repo. Si el script dice que no hay sesión vá
 abrí el orquestador y volvé a loguear con el botón de Power BI.
 
 Ve solo las áreas de trabajo donde tu usuario es miembro — que son justamente estas 5.
+
+---
+
+## Usuarios y áreas (hoja `ACCESOS`)
+
+Quién entra al tablero y qué áreas ve sale de la hoja **ACCESOS** del mismo
+`LINKS POWER BI.xlsx`. La administra `gestionar_accesos.py`.
+
+```bash
+python gestionar_accesos.py --semilla                      # crea la hoja
+python gestionar_accesos.py --set directorio               # pide la contraseña
+python gestionar_accesos.py --areas directorio "DIRECTORIO;AREAS COMUNES"
+python gestionar_accesos.py --listar
+python gestionar_accesos.py --borrar administracion07
+```
+
+| Columna       | Qué es                                                     |
+|---------------|------------------------------------------------------------|
+| `Usuario`     | Sin el dominio. `directorio`, no `directorio@danodis...`     |
+| `Nombre`      | Lo que se muestra arriba a la derecha                        |
+| `Areas`       | Separadas por `;`. `*` = ve todo. Vacío = no ve nada         |
+| `Salt`/`Hash` | PBKDF2-HMAC-SHA256. **No** se guarda la contraseña           |
+
+Las áreas son las de la columna `Area` de la hoja Tableros: `DIRECTORIO`,
+`JEFES`, `GERENCIA`, `COMPRAS`, `FINANZAS`, `AREAS COMUNES`, `PREVENTA`,
+`PREVENTA MAYORISTA`, `DEPOSITO`.
+
+Si la hoja `ACCESOS` no existe, el tablero se abre sin login, como antes.
+`sincronizar_powerbi.py` rearma el Excel en cada corrida pero copia esta hoja
+tal cual: no hace falta recargar los usuarios.
+
+### Hasta dónde llega esto
+
+**El filtro por área es cosmético.** El sitio es estático: el Excel completo se
+publica en Vercel y quien sepa la URL lo baja entero, con todos los links. Esto
+ordena la vista y evita que cada uno vea el menú del resto, nada más. Lo que
+protege cada informe de verdad es el login de Power BI.
+
+Para que sea una barrera real haría falta un backend: una función serverless en
+`/api` que valide la sesión y sirva el Excel **ya recortado**, con el archivo
+fuera del directorio público.
+
+El login usa WebCrypto, que solo existe en contexto seguro: anda por `https://`
+y por `localhost`, pero **no** abriendo el `index.html` con doble clic.

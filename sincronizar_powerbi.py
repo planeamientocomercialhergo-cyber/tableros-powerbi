@@ -400,7 +400,22 @@ def _volcar(ws, cols, filas, anchos, validar_publicar=False):
         dv.add("A2:A%d" % ultima)
 
 
-def escribir(path, tableros, catalogo, nuevos_ids):
+def leer_accesos_crudo(path):
+    """La hoja ACCESOS tal cual esta, para poder devolverla despues.
+
+    Este script rearma el Excel de cero, asi que sin esto la hoja de usuarios
+    se perderia en cada sincronizada. La maneja gestionar_accesos.py; aca solo
+    se copia y se pega, sin interpretar nada."""
+    if not os.path.isfile(path):
+        return []
+    wb = openpyxl.load_workbook(path)
+    for ws in wb.worksheets:
+        if norm(ws.title) == "accesos":
+            return [list(f) for f in ws.iter_rows(values_only=True)]
+    return []
+
+
+def escribir(path, tableros, catalogo, nuevos_ids, accesos=None):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Tableros"
@@ -414,6 +429,17 @@ def escribir(path, tableros, catalogo, nuevos_ids):
         elif f["reportId"] in nuevos_ids:
             for c in range(1, len(COLS_CATALOGO) + 1):
                 wc.cell(i, c).fill = FILL_NUEVO
+    if accesos:
+        wa = wb.create_sheet("ACCESOS")
+        for fila in accesos:
+            wa.append(fila)
+        for c in range(1, len(accesos[0]) + 1):
+            cel = wa.cell(1, c)
+            cel.font = Font(bold=True, color="FFFFFF")
+            cel.fill = FILL_CAB
+        for c, ancho in enumerate([20, 24, 46, 12, 26, 46], start=1):
+            wa.column_dimensions[get_column_letter(c)].width = ancho
+        wa.freeze_panes = "A2"
     wb.save(path)
 
 
@@ -472,6 +498,9 @@ def main():
 
     prev_tab = leer_tableros_legacy(entrada)
     prev_cat = leer_hoja(entrada, ["Catalogo"], COLS_CATALOGO)
+    # Los usuarios se leen de la SALIDA, no de la entrada: con --test la entrada
+    # puede ser el Excel de produccion y no queremos pisar ni mezclar accesos.
+    accesos = leer_accesos_crudo(os.path.join(AQUI, args.salida))
     print("Excel actual: %d filas en Tableros, %d en Catalogo"
           % (len(prev_tab), len(prev_cat)))
 
@@ -767,7 +796,7 @@ def main():
         print("\nDRY-RUN: no escribi nada.")
         return 0
     try:
-        escribir(salida, tableros, catalogo, nuevos_ids)
+        escribir(salida, tableros, catalogo, nuevos_ids, accesos)
     except PermissionError:
         print("")
         print("ERROR: no puedo escribir '%s'." % os.path.basename(salida))
