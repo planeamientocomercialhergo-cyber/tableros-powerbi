@@ -165,19 +165,30 @@
   .login-card button:hover { background: #1e293b; }
   .login-card button:disabled { opacity: .55; cursor: default; }
   .login-err { color: #b91c1c; font-size: 13px; margin-top: 13px; min-height: 18px; }
-  .user-chip { display: inline-flex; align-items: center; gap: 9px; font-size: 12.5px; color: #cbd5e1; }
+  /* Va separado de los logos: entre las marcas se perdia y nadie lo encontraba. */
+  .user-chip {
+    display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; color: #cbd5e1;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px; padding: 5px 6px 5px 14px; white-space: nowrap;
+  }
   .user-chip[hidden] { display: none; }
   .user-chip strong { color: #fff; font-weight: 700; }
   .user-chip button {
-    border: 1px solid rgba(255,255,255,.28); background: transparent; color: #cbd5e1;
-    border-radius: 999px; padding: 3px 11px; font-size: 12px; cursor: pointer; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+    border: none; background: rgba(255,255,255,.16); color: #fff;
+    border-radius: 999px; padding: 5px 13px; font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
   }
-  .user-chip button:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .user-chip button:hover { background: rgba(255,255,255,.3); }
+  .user-chip button svg { width: 14px; height: 14px; }
 
   @media (max-width: 640px) {
     header { padding: 26px 18px 22px; }
-    .logos-strip { gap: 18px; }
+    /* En el celu el chip se pone en su propia linea: al lado de los logos
+       el nombre se partia en dos y quedaba todo apretado. */
+    .logos-strip { gap: 18px; flex-wrap: wrap; }
     .logos-strip img { height: 24px; }
+    .user-chip { flex-basis: 100%; justify-content: space-between; }
     main { padding: 22px 16px 48px; }
     .footer-inner { flex-direction: column; text-align: center; gap: 14px; }
   }
@@ -207,7 +218,10 @@
       <div class="logos-strip">
         <span class="user-chip" id="user-chip" hidden>
           <strong id="user-nombre"></strong>
-          <button type="button" id="salir">Salir</button>
+          <button type="button" id="salir" title="Cerrar sesión">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Cerrar sesión
+          </button>
         </span>
         <img src="assets/logos/white-hergo.png" alt="Hergo" />
         <img src="assets/logos/white-alta.png" alt="Alta" class="tall" />
