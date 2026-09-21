@@ -185,9 +185,14 @@
   @media (max-width: 640px) {
     header { padding: 26px 18px 22px; }
     /* En el celu el chip se pone en su propia linea: al lado de los logos
-       el nombre se partia en dos y quedaba todo apretado. */
-    .logos-strip { gap: 18px; flex-wrap: wrap; }
-    .logos-strip img { height: 24px; }
+       el nombre se partia en dos y quedaba todo apretado. Los logos van
+       debajo, centrados y mas chicos, para que entren los cuatro.
+       Ojo con Hergo: tiene su propio alto por especificidad y hay que
+       pisarlo aca tambien o desborda la fila. */
+    .logos-strip { gap: 14px; flex-wrap: wrap; justify-content: center; width: 100%; }
+    .logos-strip img { height: 21px; }
+    .logos-strip img.tall { height: 24px; }
+    .logos-strip img[src*="hergo"] { height: 27px; }
     .user-chip { flex-basis: 100%; justify-content: space-between; }
     main { padding: 22px 16px 48px; }
     .footer-inner { flex-direction: column; text-align: center; gap: 14px; }
@@ -603,6 +608,43 @@
 
     const normUser = (u) => (u ?? "").toString().trim().toLowerCase().split("@")[0];
 
+    // La sesion dura DIAS_SESION dias y sobrevive a cerrar el navegador: la
+    // idea es entrar una vez y no volver a tipear la clave. En localStorage,
+    // no en sessionStorage, que se borraba al cerrar la pestaña.
+    // Se guarda solo el usuario y el vencimiento. La contraseña no: si alguien
+    // quiere que el navegador la recuerde, que la guarde el navegador.
+    const DIAS_SESION = 30;
+    const CLAVE_SESION = "pbi_sesion";
+
+    function guardarSesion(usuario) {
+      const dato = JSON.stringify(
+        { usuario, exp: Date.now() + DIAS_SESION * 86400000 });
+      try { localStorage.setItem(CLAVE_SESION, dato); } catch (e) {}
+    }
+
+    function leerSesion() {
+      let crudo = null;
+      try { crudo = localStorage.getItem(CLAVE_SESION); } catch (e) { return ""; }
+      if (!crudo) {
+        // Sesiones de la version anterior, para no echar a nadie al actualizar.
+        try {
+          const viejo = normUser(sessionStorage.getItem("pbi_user"));
+          if (viejo) { guardarSesion(viejo); sessionStorage.removeItem("pbi_user"); }
+          return viejo || "";
+        } catch (e) { return ""; }
+      }
+      try {
+        const s = JSON.parse(crudo);
+        if (!s.exp || Date.now() > s.exp) { borrarSesion(); return ""; }
+        return normUser(s.usuario);
+      } catch (e) { borrarSesion(); return ""; }
+    }
+
+    function borrarSesion() {
+      try { localStorage.removeItem(CLAVE_SESION); } catch (e) {}
+      try { sessionStorage.removeItem("pbi_user"); } catch (e) {}
+    }
+
     function leerAccesos(wb) {
       const nombre = wb.SheetNames.find(n => norm(n) === "accesos");
       if (!nombre) return [];
@@ -650,7 +692,7 @@
       SESION = { usuario: u.usuario,
                  nombre: u.nombre || u.usuario,
                  areas: parsearAreas(u.areas) };
-      try { sessionStorage.setItem("pbi_user", SESION.usuario); } catch (e) {}
+      guardarSesion(SESION.usuario);
       document.getElementById("login").classList.remove("on");
       document.getElementById("user-chip").hidden = false;
       document.getElementById("user-nombre").textContent = SESION.nombre;
@@ -676,8 +718,7 @@
     // Preferible a dejar a todos afuera si alguna vez se pierde la hoja.
     function arrancar() {
       if (!USUARIOS.length) { CARDS = buildCards(ITEMS); route(); return; }
-      let guardado = "";
-      try { guardado = normUser(sessionStorage.getItem("pbi_user")); } catch (e) {}
+      const guardado = leerSesion();
       const u = guardado && USUARIOS.find(x => x.usuario === guardado);
       if (u) entrar(u); else mostrarLogin();
     }
@@ -710,7 +751,7 @@
     });
 
     document.getElementById("salir").addEventListener("click", () => {
-      try { sessionStorage.removeItem("pbi_user"); } catch (e) {}
+      borrarSesion();
       location.hash = "";
       location.reload();
     });

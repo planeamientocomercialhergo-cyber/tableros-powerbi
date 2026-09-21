@@ -256,5 +256,10 @@ Para que sea una barrera real haría falta un backend: una función serverless e
 `/api` que valide la sesión y sirva el Excel **ya recortado**, con el archivo
 fuera del directorio público.
 
+La sesion queda guardada **30 dias** en el `localStorage` del navegador: se
+entra una vez y no se vuelve a pedir la clave hasta que vence o hasta que se
+toca *Cerrar sesion*. Para cambiar cuanto dura, `DIAS_SESION` en `index.html`.
+Se guarda solo el usuario y el vencimiento, nunca la contrasena.
+
 El login usa WebCrypto, que solo existe en contexto seguro: anda por `https://`
 y por `localhost`, pero **no** abriendo el `index.html` con doble clic.
