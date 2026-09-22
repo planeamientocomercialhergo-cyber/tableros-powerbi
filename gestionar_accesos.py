@@ -47,8 +47,9 @@ EXCEL = os.path.join(AQUI, "LINKS POWER BI.xlsx")
 # solo esta carpeta. Es a proposito y no hay que moverlo adentro.
 CLAVES = os.path.join(os.path.dirname(AQUI), "CLAVES TABLERO.xlsx")
 HOJA_CLAVES = "CLAVES"
-COLS_CLAVES = ["Usuario", "Contrasena", "Nombre", "Areas"]
-ANCHOS_CLAVES = {"Usuario": 20, "Contrasena": 22, "Nombre": 24, "Areas": 46}
+COLS_CLAVES = ["Usuario", "Contrasena", "Cuenta", "Nombre", "Areas"]
+ANCHOS_CLAVES = {"Usuario": 24, "Contrasena": 22, "Cuenta": 10, "Nombre": 24,
+                 "Areas": 46}
 
 HOJA = "ACCESOS"
 COLS = ["Usuario", "Nombre", "Areas", "Iteraciones", "Salt", "Hash"]
@@ -297,13 +298,51 @@ def leer_planilla_claves(path):
     return out
 
 
+def resolver_cuenta(valor):
+    """La columna Cuenta dice de que cuenta de Power BI cuelga la persona.
+
+    Se escribe el numero (1, 2, 4, 5) y se entiende 'administracion01' y
+    compania; tambien se acepta el nombre completo, por si alguna vez cuelga
+    de 'directorio' o de una cuenta que no siga esa numeracion."""
+    v = str(valor or "").strip()
+    if not v:
+        return ""
+    # Excel guarda los numeros como 2 o como 2.0 segun como se cargaron.
+    try:
+        return "administracion%02d" % int(float(v))
+    except ValueError:
+        return norm_usuario(v)
+
+
 def aplicar_planilla(filas, pedidos):
     """Vuelca la planilla de claves sobre las filas de la hoja ACCESOS.
 
     Devuelve (claves_cambiadas, datos_cambiados). Campo vacio = no se toca,
-    para poder cargar de a uno sin pisar el resto."""
+    para poder cargar de a uno sin pisar el resto.
+
+    Quien tenga Cuenta hereda las areas de esa cuenta, y se recalcula en cada
+    publicacion: cambiando las areas de 'administracion02' cambian de una todos
+    los que cuelgan del 2."""
     claves, datos = [], []
+    # Las areas de cada cuenta madre, tal como quedan despues de esta pasada.
+    madres = {}
     for p in pedidos:
+        u = norm_usuario(p["Usuario"])
+        if not resolver_cuenta(p.get("Cuenta")):
+            madres[u] = p["Areas"]
+
+    for p in pedidos:
+        cuenta = resolver_cuenta(p.get("Cuenta"))
+        if cuenta:
+            heredado = madres.get(cuenta)
+            if heredado is None:
+                f0 = buscar(filas, cuenta)
+                heredado = f0["Areas"] if f0 else None
+            if heredado is None:
+                print("  AVISO: '%s' cuelga de '%s', que no existe. Lo salteo."
+                      % (norm_usuario(p["Usuario"]), cuenta))
+                continue
+            p = dict(p, Areas=heredado)
         u = norm_usuario(p["Usuario"])
         f = buscar(filas, u)
         if not f:
@@ -319,7 +358,10 @@ def aplicar_planilla(filas, pedidos):
             datos.append(u + " nombre")
         # Las areas se comparan contra "" a proposito: dejar la celda vacia
         # es no tocar, y para sacarle todo se pone la palabra NINGUNA.
-        if p["Areas"]:
+        # Con Cuenta es distinto: ahi manda la cuenta madre siempre, incluso
+        # cuando no tiene ninguna area, o el heredero se quedaria con las que
+        # tenia antes de colgarse de ella.
+        if p["Areas"] or cuenta:
             nuevo = "" if norm(p["Areas"]) == "ninguna" else p["Areas"]
             if nuevo != f["Areas"]:
                 f["Areas"] = nuevo

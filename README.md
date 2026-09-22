@@ -267,8 +267,21 @@ Vercel es solo esa carpeta. Al repo viaja unicamente el hash, que no se puede
 revertir. El script ademas se niega a leer la planilla si la encuentra dentro
 del repo, y `.gitignore` la tapa por las dudas.
 
-Columnas: `Usuario`, `Contrasena`, `Nombre`, `Areas`. Celda vacia = no se toca,
-asi que se puede corregir de a una.
+Columnas: `Usuario`, `Contrasena`, `Cuenta`, `Nombre`, `Areas`. Celda vacia =
+no se toca, asi que se puede corregir de a una.
+
+**`Cuenta`: de que cuenta de Power BI cuelga cada persona.** Se pone el numero
+(1, 2, 4, 5) y se entiende `administracion01` y compania; tambien se acepta el
+nombre entero, por ejemplo `directorio`. Quien tiene `Cuenta` **hereda las
+areas** de esa cuenta y su columna `Areas` se ignora.
+
+Se recalcula en cada publicacion, asi que el permiso se administra en un solo
+lugar: cambiando las areas de `administracion02` cambian de una todos los que
+cuelgan del 2. Para dar de alta a alguien alcanza con una fila: usuario, clave
+y el numero de su cuenta.
+
+Las 9 cuentas de Power BI van sin `Cuenta` y con sus `Areas` propias: son las
+madres.
 
 **Dos claves para el mismo usuario:** separalas con `|`. Por ejemplo
 `Hergo*2024.|9526` deja entrar con cualquiera de las dos, indistintamente:
