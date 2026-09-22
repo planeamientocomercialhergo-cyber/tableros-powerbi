@@ -400,6 +400,41 @@ def _volcar(ws, cols, filas, anchos, validar_publicar=False):
         dv.add("A2:A%d" % ultima)
 
 
+def aplicar_planilla_de_claves(salida):
+    """Pasa las claves de 'CLAVES TABLERO.xlsx' a la hoja ACCESOS, solas.
+
+    La planilla vive una carpeta mas arriba, fuera de lo que se publica, y es
+    donde se escriben usuario y contrasena en limpio. Aca se convierten en
+    salt+hash antes de que el Excel salga a Vercel: en el repo nunca hay una
+    contrasena legible.
+
+    Si no existe la planilla, no pasa nada: el tablero sigue andando con lo
+    que ya tenga cargado."""
+    try:
+        import gestionar_accesos as GA
+    except ImportError:
+        return
+    if not os.path.isfile(GA.CLAVES):
+        return
+    try:
+        pedidos = GA.leer_planilla_claves(GA.CLAVES)
+        if not pedidos:
+            return
+        filas = GA.leer(salida)
+        claves, datos = GA.aplicar_planilla(filas, pedidos)
+        if claves or datos:
+            GA.escribir(salida, filas)
+            print("Claves: %d actualizadas desde %s"
+                  % (len(claves), os.path.basename(GA.CLAVES)))
+    except PermissionError:
+        print("AVISO: no pude leer la planilla de claves (la tenes abierta).")
+        print("  Sigo con las claves que ya estaban cargadas.")
+    except Exception as e:
+        # Un problema con las claves no puede tumbar la sincronizacion entera:
+        # el tablero se publica igual con lo que ya tenia.
+        print("AVISO: no pude aplicar la planilla de claves: %s" % e)
+
+
 def leer_accesos_crudo(path):
     """La hoja ACCESOS tal cual esta, para poder devolverla despues.
 
@@ -500,6 +535,7 @@ def main():
     prev_cat = leer_hoja(entrada, ["Catalogo"], COLS_CATALOGO)
     # Los usuarios se leen de la SALIDA, no de la entrada: con --test la entrada
     # puede ser el Excel de produccion y no queremos pisar ni mezclar accesos.
+    aplicar_planilla_de_claves(os.path.join(AQUI, args.salida))
     accesos = leer_accesos_crudo(os.path.join(AQUI, args.salida))
     print("Excel actual: %d filas en Tableros, %d en Catalogo"
           % (len(prev_tab), len(prev_cat)))

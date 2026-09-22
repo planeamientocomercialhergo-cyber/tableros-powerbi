@@ -247,50 +247,40 @@ tal cual: no hace falta recargar los usuarios.
 
 ### Las contraseñas: `CLAVES TABLERO.xlsx`
 
-Se gestionan desde un Excel propio que vive **una carpeta mas arriba**:
+Todo se gestiona desde un Excel propio que vive **una carpeta mas arriba**:
 
 ```
-\\192.168.4.2\Documentos\Automatizacion de reportes\PowerBI\CLAVES TABLERO.xlsx
+\192.168.4.2\Documentos\Automatizacion de reportes\PowerBI\CLAVES TABLERO.xlsx
 ```
 
-Esta afuera de `Links POWER BI` a proposito: lo que se publica en Vercel es
-**solo** esa carpeta. Ahi adentro las claves quedarian descargables desde
-internet, asi que el script directamente se niega a leer la planilla si la
-encontras dentro del repo.
+Ahi estan los usuarios con la contrasena en limpio. Se edita como cualquier
+planilla y listo: **al publicar, el script las convierte solo** en `Salt`/`Hash`
+y las escribe en la hoja ACCESOS de `LINKS POWER BI.xlsx`. No hay que correr
+nada aparte.
 
-El circuito es:
+```
+Abris CLAVES TABLERO.xlsx  ->  editas  ->  guardas  ->  publicar.bat
+```
 
-1. Abris `CLAVES TABLERO.xlsx`, hoja **CLAVES**, y escribis la contrasena.
-2. Guardas y cerras.
-3. Doble clic en **`aplicar claves.bat`** -> la convierte en `Salt`/`Hash` y la
-   escribe en la hoja ACCESOS de `LINKS POWER BI.xlsx`.
-4. `publicar.bat`.
+La planilla esta afuera de `Links POWER BI` **a proposito**: lo que se sube a
+Vercel es solo esa carpeta. Al repo viaja unicamente el hash, que no se puede
+revertir. El script ademas se niega a leer la planilla si la encuentra dentro
+del repo, y `.gitignore` la tapa por las dudas.
 
-**Sumar una clave sin volver a escribir la otra:** doble clic en
-`agregar clave.bat`, o `python gestionar_accesos.py --agregar-clave directorio`.
-Para volver atras y dejar solo la original: `--quitar-claves directorio`.
+Columnas: `Usuario`, `Contrasena`, `Nombre`, `Areas`. Celda vacia = no se toca,
+asi que se puede corregir de a una.
 
-**Varias claves para el mismo usuario:** separalas con `|` en la celda
-Contrasena. Por ejemplo `Hergo*2024.|9526` deja entrar con cualquiera de las
-dos, indistintamente. Sirve para tener la clave larga de Power BI y un PIN
-corto para el celular. Se guarda una sal y un hash por cada una.
+**Dos claves para el mismo usuario:** separalas con `|`. Por ejemplo
+`Hergo*2024.|9526` deja entrar con cualquiera de las dos, indistintamente:
+sirve para tener la clave larga de Power BI y un PIN corto para el celular.
 
 Ojo con los PIN cortos: el hash se publica, y probar 10.000 numeros de cuatro
 cifras contra el es cuestion de un rato. Para este tablero da lo mismo (el
 filtro ya es cosmetico y lo que protege los informes es Power BI), pero no
 reuses ese PIN para nada serio.
 
-Celda vacia = no se toca, asi que se puede cargar de a una. Desde esa misma
-planilla se pueden editar `Nombre` y `Areas` (`NINGUNA` saca todo).
-
-La planilla **nunca** se sube: esta fuera del repo y ademas en `.gitignore`.
-Lo que viaja a Vercel es solo el hash, que no se puede revertir.
-
-Para una sola clave sin abrir Excel: `cambiar clave.bat`, o
-
-```bash
-python gestionar_accesos.py --set administracion04
-```
+Si la planilla esta abierta en Excel cuando se publica, avisa y sigue con las
+claves que ya estaban: no rompe la publicacion.
 
 ### Hasta dónde llega esto
 
