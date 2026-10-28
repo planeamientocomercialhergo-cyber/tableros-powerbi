@@ -10,10 +10,10 @@
   },
   "_agrupacion_default": "Agrupacion que se pone a un reporte nuevo recien descubierto. Despues la corregis a mano en el Excel y el script la respeta para siempre.",
   "agrupacion_default": {
-    "Directorio": "HERGO - DISTRIBUCION",
-    "Compras": "HERGO - DISTRIBUCION",
-    "Grupo Hergo - Jefes": "HERGO - DISTRIBUCION",
-    "Grupo Hergo - Gerencias": "HERGO - DISTRIBUCION",
+    "Directorio": "VENTAS - COMERCIAL",
+    "Compras": "VENTAS - COMERCIAL",
+    "Grupo Hergo - Jefes": "VENTAS - COMERCIAL",
+    "Grupo Hergo - Gerencias": "VENTAS - COMERCIAL",
     "Grupo Hergo - Finanzas": "FINANZAS"
   },
   "_agrupacion_por_nombre": "Si el nombre del reporte contiene este texto, va a esa Agrupacion. Se evalua antes que agrupacion_default y en este orden.",
@@ -37,8 +37,8 @@
   "meses_max": 2,
   "_replicar_en_todas_las_areas": "Links cargados a mano que se publican en TODAS las areas de trabajo, y en que agrupacion cae cada uno. Se cargan una sola vez en el Excel; si cambia la URL se edita en un solo lugar.",
   "replicar_en_todas_las_areas": {
-    "REPORTE DE VENTAS": "PRINCIPAL",
-    "SEGUIMIENTO DE OBJETIVOS": "HERGO - DISTRIBUCION"
+    "REPORTE DE VENTAS": "VENTAS - COMERCIAL",
+    "SEGUIMIENTO DE OBJETIVOS": "VENTAS - COMERCIAL"
   },
   "_tratar_como_informe": "Links a mano que no son de Power BI pero son informes, no apps. Cambia el icono, el boton (Abrir tablero) y como se cuentan.",
   "tratar_como_informe": [
@@ -61,7 +61,7 @@
   ],
   "_areas_por_acceso": "Areas de trabajo donde cada informe existe una vez y se comparte por usuario. El Area del tablero sale de quien tiene acceso (cuenta_area). El valor es la agrupacion por defecto de un informe sin categoria.",
   "areas_por_acceso": {
-    "Informes": "COMERCIAL",
+    "Informes": "VENTAS - COMERCIAL",
     "Grupo Hergo - Finanzas": "FINANZAS"
   },
   "_cuenta_area": "Cuenta de Power BI (sin dominio) -> Area del tablero. Una cuenta que no figura aca no agrega Area (por ejemplo las de preventa que todavia no tienen usuarios en el tablero).",

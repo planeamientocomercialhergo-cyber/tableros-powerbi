@@ -267,23 +267,22 @@
       finanzas:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v5h-5"/></svg>',
       apps:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>',
       principal:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.1 6-5.3-3-5.3 3 1.1-6L3.3 9.4l6.1-.8z"/></svg>',
+      ventas:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+      precios:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
+      margenes:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>',
+      stock:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+      tienda:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg>',
+      marketing:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M19 6a8 8 0 0 1 0 12"/></svg>',
     };
 
     const GRUPOS = {
-      "PRINCIPAL": {
-        accent: "#0F172A", tint: "#e8eaf0", icon: IC.principal, logos: []
-      },
-      "HERGO - DISTRIBUCION": {
-        accent: "#1B4FE5", tint: "#e9efff",
-        logos: ["assets/logos/hergo.png", "assets/logos/alta.png"]
-      },
-      "MENOR COSTE": {
-        accent: "#2E8757", tint: "#e7f4ec",
-        logos: ["assets/logos/menor-coste.png"]
-      },
-      "FINANZAS": {
-        accent: "#0F766E", tint: "#e0f2f0", icon: IC.finanzas, logos: []
-      }
+      "VENTAS - COMERCIAL": { accent: "#1B4FE5", tint: "#e9efff", icon: IC.ventas,    logos: [] },
+      "PRECIOS Y OFERTAS":  { accent: "#7C3AED", tint: "#f1ebfd", icon: IC.precios,   logos: [] },
+      "MARGENES Y COSTOS":  { accent: "#B45309", tint: "#fbf0e4", icon: IC.margenes,  logos: [] },
+      "STOCK Y LOGISTICA":  { accent: "#475569", tint: "#eef2f6", icon: IC.stock,     logos: [] },
+      "MENOR COSTE":        { accent: "#2E8757", tint: "#e7f4ec", icon: IC.tienda,    logos: [] },
+      "FINANZAS":           { accent: "#0F766E", tint: "#e0f2f0", icon: IC.finanzas,  logos: [] },
+      "MARKETING":          { accent: "#BE185D", tint: "#fbe9f1", icon: IC.marketing, logos: [] }
     };
     const DEFAULT_GRUPO = { accent: "#475569", tint: "#eef2f6", icon: "", logos: [] };
 

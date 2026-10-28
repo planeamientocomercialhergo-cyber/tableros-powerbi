@@ -660,6 +660,14 @@ def main():
             manuales.extend(copias)
             print("Apps replicadas en las areas de trabajo: %d filas" % len(copias))
 
+    # ---- 1c. la hoja Categorias manda tambien sobre los links a mano que
+    #      figuren ahi por su Nombre (Reporte de ventas, apps de venta...)
+    cats_manuales = leer_categorias(entrada)
+    for f in manuales:
+        cat = cats_manuales.get(norm(f["Nombre"]), ("", ""))[1]
+        if cat:
+            f["Agrupacion"] = cat
+
     # ---- 2. traer todo de la API
     print("\nConsultando la API de Power BI...")
     try:
