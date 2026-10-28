@@ -23,6 +23,29 @@ Reglas
   index.html colapsa en un desplegable de meses. Un mes nuevo de una serie que
   ya tiene meses publicados se marca SI automaticamente.
 
+Areas por acceso (areas_por_acceso en la config)
+-----------------------------------------------
+En las areas de trabajo listadas ahi (Informes, Finanzas) cada informe existe
+una sola vez y se comparte por usuario. El Area del tablero ya no sale del area
+de trabajo sino de QUIEN tiene acceso: cada cuenta de Power BI con permiso de
+lectura (o rol de visor/colaborador) cae en su Area segun cuenta_area. Un
+informe compartido con directorio y administracion04 aparece en DIRECTORIO y en
+GERENCIA, con el mismo link.
+
+* Si el mismo informe sigue publicado en un area de trabajo vieja, gana el de
+  Informes y el viejo no baja al tablero. Lo que todavia no se migro sigue
+  saliendo del area vieja como siempre.
+* Nombre, Agrupacion y Descripcion de cada (informe, Area) se heredan de la
+  copia vieja del mismo Area la primera vez; despues se preservan.
+* reemplaza_series: un informe unificado (COMPARATIVO VIGENTE) reemplaza a la
+  serie mensual vieja (COMPARATIVO 09-2026, 10-2026...) en el tablero.
+
+Hoja Categorias
+---------------
+Una fila por informe (NombrePowerBI, o la serie para los mensuales) con la
+Categoria que se muestra en el tablero. Es la que manda sobre la Agrupacion del
+Catalogo. Los informes nuevos se agregan solos con la categoria vacia.
+
 Uso
 ---
   python sincronizar_powerbi.py            # actualiza "LINKS POWER BI.xlsx"
@@ -450,7 +473,21 @@ def leer_accesos_crudo(path):
     return []
 
 
-def escribir(path, tableros, catalogo, nuevos_ids, accesos=None):
+def leer_categorias(path):
+    """Hoja Categorias: {informe normalizado: (informe, categoria)}, en orden."""
+    out = {}
+    for f in leer_hoja(path, ["Categorias"], ["Informe", "Categoria"]):
+        if f["Informe"]:
+            out[norm(f["Informe"])] = (f["Informe"], f["Categoria"])
+    return out
+
+
+def cuenta_de(usuario):
+    """administracion02@danodis.onmicrosoft.com -> administracion02"""
+    return (usuario.get("emailAddress") or usuario.get("identifier") or "").lower().split("@")[0]
+
+
+def escribir(path, tableros, catalogo, nuevos_ids, accesos=None, categorias=None):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Tableros"
@@ -461,9 +498,18 @@ def escribir(path, tableros, catalogo, nuevos_ids, accesos=None):
     for i, f in enumerate(catalogo, start=2):
         if norm(f["Publicar"]) == "si":
             wc.cell(i, 1).fill = FILL_SI
-        elif f["reportId"] in nuevos_ids:
+        elif f.get("_key", f["reportId"]) in nuevos_ids:
             for c in range(1, len(COLS_CATALOGO) + 1):
                 wc.cell(i, c).fill = FILL_NUEVO
+    if categorias:
+        wk = wb.create_sheet("Categorias")
+        _volcar(wk, ["Informe", "Categoria"],
+                [{"Informe": i, "Categoria": c} for i, c in categorias],
+                {"Informe": 44, "Categoria": 28})
+        # sin categoria en amarillo: son los que quedan por clasificar
+        for i, (_, c) in enumerate(categorias, start=2):
+            if not c:
+                wk.cell(i, 2).fill = FILL_NUEVO
     if accesos:
         wa = wb.create_sheet("ACCESOS")
         for fila in accesos:
@@ -513,6 +559,9 @@ def main():
     como_informe = {norm(x) for x in cfg.get("tratar_como_informe", [])}
     reglas_agr = [(norm(k), v) for k, v in cfg.get("agrupacion_por_nombre", {}).items()]
     meses_max = int(cfg.get("meses_max", 12))  # 0 = sin tope
+    por_acceso = cfg.get("areas_por_acceso", {})
+    cuenta_area = {k.lower(): v for k, v in cfg.get("cuenta_area", {}).items()}
+    reemplaza = {norm(k): v for k, v in cfg.get("reemplaza_series", {}).items()}
     abrir_areas = {x.strip().upper() for x in args.publicar_area.split(",") if x.strip()}
     # "SI" (default): el Excel replica las areas de trabajo, todo se publica y el
     # Catalogo sirve para EXCLUIR con NO. "" = al reves, hay que tildar cada uno.
@@ -541,14 +590,28 @@ def main():
           % (len(prev_tab), len(prev_cat)))
 
     # ---- 1. curaduria previa, indexada por reportId
-    curado = {}       # reportId -> dict con Area/Agrupacion/Nombre/Descripcion
-    publicar = {}     # reportId -> "SI" / "NO" / ""
+    # Clave: reportId en las areas de trabajo viejas; reportId|AREA en las de
+    # acceso, donde el mismo informe aparece en varias Areas con curaduria propia.
+    curado = {}       # clave -> dict con Area/Agrupacion/Nombre/Descripcion
+    publicar = {}     # clave -> "SI" / "NO" / ""
+    previo = {}       # (Area, informe o serie) -> fila vieja, para heredar
+    previo_vistas = {}
     for f in prev_cat:
         rid = (f["reportId"] or "").lower()
         if not rid:
             continue
-        curado[rid] = f
-        publicar[rid] = norm(f["Publicar"]).upper()
+        if f.get("AreaDeTrabajo") in por_acceso:
+            clave = rid + "|" + f["Area"].upper()
+        else:
+            clave = rid
+            k = (f["Area"].upper(), norm(f["Serie"] or f["NombrePowerBI"]))
+            previo.setdefault(k, f)
+            try:
+                previo_vistas[k] = previo_vistas.get(k, 0) + int(f.get("Vistas") or 0)
+            except ValueError:
+                pass
+        curado[clave] = f
+        publicar[clave] = norm(f["Publicar"]).upper()
 
     manuales = []
     huerfanos = []
@@ -573,7 +636,8 @@ def main():
     # ---- 1b. apps que van en todas las areas de trabajo: una sola fila de
     #      origen en el Excel, replicada. Si cambia la URL, se edita una vez.
     if replicar:
-        areas_trabajo = list(dict.fromkeys(mapa_areas.values()))
+        areas_trabajo = list(dict.fromkeys(list(mapa_areas.values())
+                                           + list(cuenta_area.values())))
         ya = {(f["Area"], norm(f["Nombre"])) for f in manuales}
         # todas las copias (y el original) van juntas al final del area, para
         # que las tarjetas de arriba sean siempre los informes
@@ -634,6 +698,7 @@ def main():
                 por_carpeta += 1
             descubierto.append({
                 "reportId": rid,
+                "_key": rid,
                 "Carpeta": carpeta,
                 "AreaDeTrabajo": nombre_ws,
                 "Area": area,
@@ -651,23 +716,84 @@ def main():
             extra = "  (%d mensuales detectados por la carpeta)" % por_carpeta
         print("  %-26s -> %-11s %3d reportes%s" % (nombre_ws, area, usados, extra))
 
-    vivos = {d["reportId"] for d in descubierto}
+    # ---- 2b. areas por acceso: un informe, tantas Areas como cuentas lo ven
+    for nombre_ws, agr in por_acceso.items():
+        g = encontrados.get(nombre_ws)
+        if not g:
+            continue
+        # el rol en el area (visor/colaborador) tambien da lectura a todo
+        con_rol = {cuenta_de(u) for u in api("/groups/%s/users" % g["id"])["value"]
+                   if u.get("groupUserAccessRight") in ("Viewer", "Contributor", "Member")}
+        reps = api("/groups/%s/reports" % g["id"])["value"]
+        vistas, fuera_cuenta = vistas_por_reporte(g["id"], excluir_upn)
+        descartadas += fuera_cuenta
+        filas = 0
+        for r in reps:
+            nom = (r.get("name") or "").strip()
+            if not nom or any(x in norm(nom) for x in ignorar):
+                continue
+            rid = (r["id"] or "").lower()
+            try:
+                permisos = api("/groups/%s/datasets/%s/users"
+                               % (g["id"], r["datasetId"]))["value"]
+            except Exception as e:  # noqa: BLE001
+                print("  AVISO: no pude leer quien accede a %s: %s" % (nom, e))
+                permisos = []
+            cuentas = con_rol | {cuenta_de(u) for u in permisos
+                                 if u.get("principalType") == "User"
+                                 and "Read" in (u.get("datasetUserAccessRight") or "")}
+            for area in sorted({cuenta_area[c] for c in cuentas if c in cuenta_area}):
+                descubierto.append({
+                    "reportId": rid,
+                    "_key": rid + "|" + area,
+                    "_nuevo": True,
+                    "Carpeta": "",
+                    "AreaDeTrabajo": nombre_ws,
+                    "Area": area,
+                    "NombrePowerBI": nom,
+                    "Serie": "",
+                    "Mes": "",
+                    "Vistas": vistas.get(rid, 0),
+                    "_orden": (0, 0),
+                })
+                filas += 1
+        print("  %-26s -> por acceso %3d informe-area" % (nombre_ws, filas))
+
+    vivos = {d["_key"] for d in descubierto}
 
     # ---- 3. area efectiva: la que ya elegiste manda sobre la del workspace
     #        (ej. COMPARATIVO 08-2026 vive en Jefes pero vos lo pusiste en DIRECTORIO)
+    #        En las de acceso el Area es la de la cuenta: no se reasigna.
     for d in descubierto:
-        cur = curado.get(d["reportId"], {})
+        if d.get("_nuevo"):
+            continue
+        cur = curado.get(d["_key"], {})
         d["Area"] = cur.get("Area") or d["Area"]
+
+    # ---- 3b. lo ya migrado a un area por acceso deja de bajar del area vieja:
+    #         mismo informe en la misma Area, o la serie mensual que reemplaza.
+    migrado = set()
+    for d in descubierto:
+        if d.get("_nuevo"):
+            migrado.add((d["Area"], norm(d["NombrePowerBI"])))
+            alt = reemplaza.get(norm(d["NombrePowerBI"]))
+            if alt:
+                migrado.add((d["Area"], norm(alt)))
+    reemplazados = [d for d in descubierto if not d.get("_nuevo") and (
+        (d["Area"], norm(d["NombrePowerBI"])) in migrado
+        or (d["Serie"] and (d["Area"], norm(d["Serie"])) in migrado))]
+    ya = {id(d) for d in reemplazados}
+    descubierto = [d for d in descubierto if id(d) not in ya]
 
     # ---- 4. herencia de Publicar dentro de una serie, con tope de meses
     series_si = set()
     for d in descubierto:
-        if d["Serie"] and publicar.get(d["reportId"]) == "SI":
+        if d["Serie"] and publicar.get(d["_key"]) == "SI":
             series_si.add((d["Area"], d["Serie"]))
 
     # todo mes de una serie ya publicada entra como SI; el tope de meses no se
     # aplica aca sino al publicar, asi cambiar meses_max no obliga a re-tildar
-    heredables = {d["reportId"] for d in descubierto
+    heredables = {d["_key"] for d in descubierto
                   if d["Serie"] and (d["Area"], d["Serie"]) in series_si}
 
     # ---- 5. armar Catalogo
@@ -677,26 +803,45 @@ def main():
                     key=lambda x: (x["Area"], x["Serie"] or x["NombrePowerBI"],
                                    x["_orden"], x["NombrePowerBI"])):
         rid = d["reportId"]
-        cur = curado.get(rid, {})
-        pub = publicar.get(rid)
+        clave = d["_key"]
+        cur = curado.get(clave, {})
+        alt = reemplaza.get(norm(d["NombrePowerBI"])) if d.get("_nuevo") else None
+        vistas = int(d.get("Vistas") or 0)
+        if d.get("_nuevo") and not cur:
+            # primera vez en el area por acceso: hereda nombre, agrupacion,
+            # descripcion y uso de la copia vieja del mismo Area, asi el
+            # usuario ve la misma tarjeta en el mismo lugar. Primero el mismo
+            # informe; si no estaba, la serie mensual que reemplaza.
+            k = (d["Area"], norm(d["NombrePowerBI"]))
+            if k not in previo and alt:
+                k = (d["Area"], norm(alt))
+            cur = previo.get(k) or {}
+            if cur and not cur.get("Serie"):
+                alt = None       # ya tenia tarjeta propia: conserva su nombre
+            vistas = max(vistas, previo_vistas.get(k, 0))
+        pub = publicar.get(clave)
         if pub is None:
-            nuevos_ids.add(rid)
+            nuevos_ids.add(clave)
         if norm(pub) == "no":
             pub = "NO"           # lo excluiste vos: se respeta siempre
         elif todo_por_defecto:
             pub = "SI"           # replicar el area de trabajo
         elif not pub:
-            pub = "SI" if (rid in heredables
+            pub = "SI" if (clave in heredables
                            or d["Area"].upper() in abrir_areas) else ""
         if d["Serie"]:
             nom = nombre_publicado(d["Serie"], (int(d["Mes"][3:]), int(d["Mes"][:2])))
+        elif alt:
+            nom = alt            # el unificado toma el nombre de la serie
         else:
-            nom = cur.get("Nombre") or d["NombrePowerBI"].upper()
+            nom = (cur.get("Nombre") if not cur.get("Serie") else "") \
+                  or d["NombrePowerBI"].upper()
         catalogo.append({
             "Publicar": pub,
-            "Area": cur.get("Area") or d["Area"],
+            "Area": d["Area"] if d.get("_nuevo") else (cur.get("Area") or d["Area"]),
             "Agrupacion": (cur.get("Agrupacion")
                            or agrupacion_de(d["NombrePowerBI"], reglas_agr)
+                           or por_acceso.get(d["AreaDeTrabajo"])
                            or agr_def.get(d["AreaDeTrabajo"], "OTROS")),
             "Nombre": nom,
             "Descripcion": cur.get("Descripcion", ""),
@@ -704,17 +849,38 @@ def main():
             "Mes": d["Mes"],
             "NombrePowerBI": d["NombrePowerBI"],
             "Carpeta": d.get("Carpeta", ""),
-            "Vistas": d.get("Vistas", 0),
+            "Vistas": vistas,
             "AreaDeTrabajo": d["AreaDeTrabajo"],
             "reportId": rid,
+            "_key": clave,
         })
+
+    # ---- 5b. categorias: la hoja Categorias manda sobre la Agrupacion. Una
+    #      fila por informe (o serie); lo nuevo se agrega sin categoria.
+    cats = leer_categorias(entrada)
+    for f in catalogo:
+        k = norm(f["Serie"] or f["NombrePowerBI"])
+        if cats.get(k, ("", ""))[1]:
+            f["Agrupacion"] = cats[k][1]
+    categorias = [v for v in cats.values()]
+    vistos_cat = set(cats)
+    for f in sorted(catalogo, key=lambda x: (x["Serie"] or x["NombrePowerBI"]).lower()):
+        if norm(f["Publicar"]) != "si":
+            continue
+        k = norm(f["Serie"] or f["NombrePowerBI"])
+        if k not in vistos_cat:
+            vistos_cat.add(k)
+            categorias.append((f["Serie"] or f["NombrePowerBI"], ""))
 
     # ---- 6. links de Power BI que estaban en el Excel y ya no estan en la API
     # Si borraste el informe de Power BI, sale del tablero. No se rescata: el
     # Excel replica lo que hay en las areas de trabajo. Los links MANUAL no
     # pasan por aca, asi que los de Vercel no se ven afectados.
+    # vivos tiene claves (reportId o reportId|AREA): basta con que el informe
+    # exista, en cualquier Area, para no darlo por borrado
+    ids_vivos = {k.split("|")[0] for k in vivos}
     for rid, cur in curado.items():
-        if rid in vivos or rid in descartar:
+        if rid.split("|")[0] in ids_vivos or rid in descartar:
             continue
         huerfanos.append((rid, cur.get("Nombre", "?"), cur.get("Area", "?")))
 
@@ -808,14 +974,21 @@ def main():
             ms = sorted((f["Mes"] for f in recortados
                          if (f["Area"], f["Serie"]) == (ar, se)))
             print("      %-11s %-24s %s" % (ar, se, ", ".join(ms)))
+    if reemplazados:
+        print("  Copias viejas reemplazadas por Informes/Finanzas ... %d" % len(reemplazados))
+    sin_cat = [i for i, c in categorias if not c]
+    if sin_cat:
+        print("  Informes SIN categoria (completar en la hoja Categorias): %d" % len(sin_cat))
+        for i in sin_cat:
+            print("    ? %s" % i)
     auto = [f for f in catalogo
-            if f["reportId"] in nuevos_ids and norm(f["Publicar"]) == "si"]
+            if f["_key"] in nuevos_ids and norm(f["Publicar"]) == "si"]
     if auto:
         print("\n  Meses nuevos publicados solos (heredaron la serie):")
         for f in auto:
             print("    + %-11s %-32s  <- %s" % (f["Area"], f["Nombre"], f["NombrePowerBI"]))
     pend = [f for f in catalogo
-            if f["reportId"] in nuevos_ids and norm(f["Publicar"]) != "si"]
+            if f["_key"] in nuevos_ids and norm(f["Publicar"]) != "si"]
     if pend:
         print("\n  Nuevos SIN publicar (marca Publicar=SI en la hoja Catalogo si los queres):")
         for f in pend[:40]:
@@ -832,7 +1005,7 @@ def main():
         print("\nDRY-RUN: no escribi nada.")
         return 0
     try:
-        escribir(salida, tableros, catalogo, nuevos_ids, accesos)
+        escribir(salida, tableros, catalogo, nuevos_ids, accesos, categorias)
     except PermissionError:
         print("")
         print("ERROR: no puedo escribir '%s'." % os.path.basename(salida))

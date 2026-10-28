@@ -1,24 +1,21 @@
 {
   "_comentario": "Config del sincronizador. Editable a mano. No contiene secretos.",
-
   "_areas": "Area de trabajo (workspace) de Power BI  ->  columna Area del Excel.",
   "areas": {
-    "Directorio":              "DIRECTORIO",
-    "Compras":                 "COMPRAS",
-    "Grupo Hergo - Jefes":     "JEFES",
+    "Directorio": "DIRECTORIO",
+    "Compras": "COMPRAS",
+    "Grupo Hergo - Jefes": "JEFES",
     "Grupo Hergo - Gerencias": "GERENCIA",
-    "Grupo Hergo - Finanzas":  "FINANZAS"
+    "Grupo Hergo - Finanzas": "FINANZAS"
   },
-
   "_agrupacion_default": "Agrupacion que se pone a un reporte nuevo recien descubierto. Despues la corregis a mano en el Excel y el script la respeta para siempre.",
   "agrupacion_default": {
-    "Directorio":              "HERGO - DISTRIBUCION",
-    "Compras":                 "HERGO - DISTRIBUCION",
-    "Grupo Hergo - Jefes":     "HERGO - DISTRIBUCION",
+    "Directorio": "HERGO - DISTRIBUCION",
+    "Compras": "HERGO - DISTRIBUCION",
+    "Grupo Hergo - Jefes": "HERGO - DISTRIBUCION",
     "Grupo Hergo - Gerencias": "HERGO - DISTRIBUCION",
-    "Grupo Hergo - Finanzas":  "FINANZAS"
+    "Grupo Hergo - Finanzas": "FINANZAS"
   },
-
   "_agrupacion_por_nombre": "Si el nombre del reporte contiene este texto, va a esa Agrupacion. Se evalua antes que agrupacion_default y en este orden.",
   "agrupacion_por_nombre": {
     "menor coste": "MENOR COSTE",
@@ -29,46 +26,55 @@
     "situacion financiera": "FINANZAS",
     "cxc": "FINANZAS"
   },
-
   "_alias_series": "Nombre base de una serie mensual en Power BI -> como se llama en el tablero. Sin esto, 'Informe Hctos - Junio 26' se publicaria como 'INFORME HCTOS 06-2026'.",
   "alias_series": {
     "informe hctos": "HECTOLITROS",
     "participacion ventas ccu": "PARTICIPACION VENTAS CCU"
   },
-
   "_publicar_nuevos": "SI = el Excel replica las areas de trabajo: todo reporte que exista se publica, y en la hoja Catalogo ponés NO a lo que no quieras. Vacio = al reves, nada se publica hasta que pongas SI.",
   "publicar_nuevos": "SI",
-
   "_meses_max": "De una serie mensual ya publicada, cuantos meses recientes se publican solos. 2 = mes actual y anterior. 0 = todos.",
   "meses_max": 2,
-
   "_replicar_en_todas_las_areas": "Links cargados a mano que se publican en TODAS las areas de trabajo, y en que agrupacion cae cada uno. Se cargan una sola vez en el Excel; si cambia la URL se edita en un solo lugar.",
   "replicar_en_todas_las_areas": {
     "REPORTE DE VENTAS": "PRINCIPAL",
     "SEGUIMIENTO DE OBJETIVOS": "HERGO - DISTRIBUCION"
   },
-
   "_tratar_como_informe": "Links a mano que no son de Power BI pero son informes, no apps. Cambia el icono, el boton (Abrir tablero) y como se cuentan.",
   "tratar_como_informe": [
     "REPORTE DE VENTAS",
     "SEGUIMIENTO DE OBJETIVOS"
   ],
-
   "_parametros_embed": "Se agrega al final de cada link de Power BI. Vacio = como esta hoy. Utiles: filterPaneEnabled=false (esconde el panel de filtros), navContentPaneEnabled=false (esconde las pestanas de pagina, ojo con los informes de varias paginas).",
   "parametros_embed": "",
-
   "_excluir_usuarios": "Cuentas cuyas vistas NO cuentan para ordenar. Poner la propia evita que los informes que uno mas toca queden arriba por su propio uso. Coincide por texto contenido en el UserPrincipalName.",
   "excluir_usuarios": [
     "administracion01@"
   ],
-
   "_descartar_reportid": "Informes borrados de Power BI que ya no querés ver avisados en el resumen de cada corrida.",
   "descartar_reportid": [
     "b812abf4-311c-4170-b461-57f33d776c6e"
   ],
-
   "_ignorar": "Reportes que nunca entran ni al Catalogo. Coincidencia por texto contenido, sin distinguir mayusculas.",
   "ignorar": [
     "Usage Metrics Report"
-  ]
+  ],
+  "_areas_por_acceso": "Areas de trabajo donde cada informe existe una vez y se comparte por usuario. El Area del tablero sale de quien tiene acceso (cuenta_area). El valor es la agrupacion por defecto de un informe sin categoria.",
+  "areas_por_acceso": {
+    "Informes": "COMERCIAL",
+    "Grupo Hergo - Finanzas": "FINANZAS"
+  },
+  "_cuenta_area": "Cuenta de Power BI (sin dominio) -> Area del tablero. Una cuenta que no figura aca no agrega Area (por ejemplo las de preventa que todavia no tienen usuarios en el tablero).",
+  "cuenta_area": {
+    "directorio": "DIRECTORIO",
+    "administracion02": "JEFES",
+    "administracion04": "GERENCIA",
+    "administracion05": "FINANZAS",
+    "administracion06": "COMPRAS"
+  },
+  "_reemplaza_series": "Informe unificado -> serie mensual vieja que reemplaza (nombre de serie como sale en el tablero). El informe se publica con ese nombre y la serie vieja deja de bajar.",
+  "reemplaza_series": {
+    "COMPARATIVO VIGENTE": "COMPARATIVO",
+    "Informe Hctos": "HECTOLITROS"
+  }
 }
