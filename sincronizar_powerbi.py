@@ -831,8 +831,9 @@ def main():
                            or d["Area"].upper() in abrir_areas) else ""
         if d["Serie"]:
             nom = nombre_publicado(d["Serie"], (int(d["Mes"][3:]), int(d["Mes"][:2])))
-        elif alt:
+        elif alt and not (clave in curado and curado[clave].get("Nombre")):
             nom = alt            # el unificado toma el nombre de la serie
+                                 # (solo la primera vez: despues manda el tuyo)
         else:
             nom = (cur.get("Nombre") if not cur.get("Serie") else "") \
                   or d["NombrePowerBI"].upper()
