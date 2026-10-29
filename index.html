@@ -544,7 +544,8 @@
     }
 
     function singleCard(card, c) {
-      return `<a class="card" href="${esc(card.url)}" target="_blank" rel="noopener">
+      return `<a class="card" href="${esc(card.url)}" target="_blank" rel="noopener"
+        data-informe="${esc(card.nombre)}" data-area="${esc(card.area)}">
         <div class="card-top">
           ${iconFor(card, c)}
           <div class="card-title">${esc(card.nombre)}</div>
@@ -576,7 +577,8 @@
         <div class="card-spacer"></div>
         <div class="row">
           <select class="month-select" data-id="${id}" aria-label="Seleccionar mes">${opts}</select>
-          <a class="open-btn" data-open="${id}" href="${esc(first.url)}" target="_blank" rel="noopener">Abrir
+          <a class="open-btn" data-open="${id}" href="${esc(first.url)}" target="_blank" rel="noopener"
+            data-informe="${esc(card.nombre)}" data-area="${esc(card.area)}">Abrir
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
         </div>
@@ -701,10 +703,36 @@
     const permitido = (area) =>
       !SESION || !SESION.areas || SESION.areas.includes((area || "").toUpperCase());
 
-    function entrar(u) {
+    // ===== Registro de uso ==================================================
+    // Avisa a /api/registro quien entra y que informe abre, para saber que se
+    // usa (y cuando una copia vieja ya no la abre nadie). sendBeacon no frena
+    // la navegacion ni el clic; si falla, no pasa nada. En local no anda.
+    function registrar(evento, datos) {
+      try {
+        if (location.protocol !== "https:" || !navigator.sendBeacon) return;
+        const cuerpo = JSON.stringify({ evento, usuario: SESION ? SESION.usuario : "", ...datos });
+        navigator.sendBeacon("/api/registro", new Blob([cuerpo], { type: "application/json" }));
+      } catch (e) { /* el registro nunca rompe el tablero */ }
+    }
+
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest("a.card[href], a.open-btn[href]");
+      if (!a || !a.dataset.informe) return;
+      let mes = "";
+      if (a.classList.contains("open-btn")) {
+        const sel = document.querySelector(`.month-select[data-id="${a.dataset.open}"]`);
+        if (sel && sel.selectedOptions[0]) mes = sel.selectedOptions[0].textContent;
+      }
+      registrar("clic", { informe: a.dataset.informe, area: a.dataset.area,
+                          mes, url: a.getAttribute("href") });
+    });
+
+    // evento: "login" (tipeo la clave) o "sesion" (ya tenia la sesion guardada)
+    function entrar(u, evento) {
       SESION = { usuario: u.usuario,
                  nombre: u.nombre || u.usuario,
                  areas: parsearAreas(u.areas) };
+      registrar(evento || "sesion", {});
       guardarSesion(SESION.usuario);
       document.getElementById("login").classList.remove("on");
       document.getElementById("user-chip").hidden = false;
@@ -769,7 +797,7 @@
         const ok = u && await claveValida(u, cla);
         if (!ok) { err.textContent = "Usuario o contraseña incorrectos."; return; }
         await ofrecerGuardar();
-        entrar(u);
+        entrar(u, "login");
         // El campo se limpia DESPUES de ofrecer guardar y en el tick siguiente:
         // si se vacia antes, el navegador no encuentra la clave y nunca
         // pregunta si la quiere recordar.
