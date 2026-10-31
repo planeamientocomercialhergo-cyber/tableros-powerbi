@@ -2,18 +2,12 @@
   "_comentario": "Config del sincronizador. Editable a mano. No contiene secretos.",
   "_areas": "Area de trabajo (workspace) de Power BI  ->  columna Area del Excel.",
   "areas": {
-    "Directorio": "DIRECTORIO",
-    "Compras": "COMPRAS",
     "Grupo Hergo - Jefes": "JEFES",
-    "Grupo Hergo - Gerencias": "GERENCIA",
     "Grupo Hergo - Finanzas": "FINANZAS"
   },
   "_agrupacion_default": "Agrupacion que se pone a un reporte nuevo recien descubierto. Despues la corregis a mano en el Excel y el script la respeta para siempre.",
   "agrupacion_default": {
-    "Directorio": "VENTAS - COMERCIAL",
-    "Compras": "VENTAS - COMERCIAL",
     "Grupo Hergo - Jefes": "VENTAS - COMERCIAL",
-    "Grupo Hergo - Gerencias": "VENTAS - COMERCIAL",
     "Grupo Hergo - Finanzas": "FINANZAS"
   },
   "_agrupacion_por_nombre": "Si el nombre del reporte contiene este texto, va a esa Agrupacion. Se evalua antes que agrupacion_default y en este orden.",
@@ -70,7 +64,13 @@
     "administracion02": "JEFES",
     "administracion04": "GERENCIA",
     "administracion05": "FINANZAS",
-    "administracion06": "COMPRAS"
+    "administracion06": "COMPRAS",
+    "administracion03": "RRHH",
+    "administracion08": "ALTA",
+    "administracion09": "BLACK",
+    "administracion10": "COUSTLAIN",
+    "administracion11": "MAYORISTA",
+    "administracion12": "MENOR COSTE"
   },
   "_reemplaza_series": "Informe unificado -> serie mensual vieja que reemplaza (nombre de serie como sale en el tablero). El informe se publica con ese nombre y la serie vieja deja de bajar.",
   "reemplaza_series": {

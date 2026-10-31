@@ -423,7 +423,7 @@ def _volcar(ws, cols, filas, anchos, validar_publicar=False):
         dv.add("A2:A%d" % ultima)
 
 
-def aplicar_planilla_de_claves(salida):
+def aplicar_planilla_de_claves(salida, cuenta_area=None, escribir=True):
     """Pasa las claves de 'CLAVES TABLERO.xlsx' a la hoja ACCESOS, solas.
 
     La planilla vive una carpeta mas arriba, fuera de lo que se publica, y es
@@ -432,7 +432,15 @@ def aplicar_planilla_de_claves(salida):
     contrasena legible.
 
     Si no existe la planilla, no pasa nada: el tablero sigue andando con lo
-    que ya tenga cargado."""
+    que ya tenga cargado.
+
+    Una cuenta de Power BI con la columna Areas vacia toma su Area de
+    cuenta_area (administracion05 -> FINANZAS), la misma que decide que
+    tarjetas le tocan. Sin esto, la cuenta madre quedaba sin areas y todos los
+    que cuelgan de ella (columna Cuenta) heredaban el vacio: entraban y no
+    veian nada.
+
+    escribir=False (dry-run) calcula y avisa, pero no toca el Excel."""
     try:
         import gestionar_accesos as GA
     except ImportError:
@@ -443,12 +451,21 @@ def aplicar_planilla_de_claves(salida):
         pedidos = GA.leer_planilla_claves(GA.CLAVES)
         if not pedidos:
             return
+        for p in pedidos:
+            area = (cuenta_area or {}).get(GA.norm_usuario(p["Usuario"]))
+            if area and not p["Areas"] and not GA.resolver_cuenta(p.get("Cuenta")):
+                p["Areas"] = area + ";AREAS COMUNES"
         filas = GA.leer(salida)
         claves, datos = GA.aplicar_planilla(filas, pedidos)
         if claves or datos:
-            GA.escribir(salida, filas)
-            print("Claves: %d actualizadas desde %s"
-                  % (len(claves), os.path.basename(GA.CLAVES)))
+            if escribir:
+                GA.escribir(salida, filas)
+            print("Claves: %d actualizadas desde %s%s"
+                  % (len(claves), os.path.basename(GA.CLAVES),
+                     "" if escribir else " (dry-run, no se escribe)"))
+        sin = [f["Usuario"] for f in filas if not f["Areas"]]
+        if sin:
+            print("  AVISO: entran al tablero y no ven nada (sin areas): " + ", ".join(sin))
     except PermissionError:
         print("AVISO: no pude leer la planilla de claves (la tenes abierta).")
         print("  Sigo con las claves que ya estaban cargadas.")
@@ -584,7 +601,8 @@ def main():
     prev_cat = leer_hoja(entrada, ["Catalogo"], COLS_CATALOGO)
     # Los usuarios se leen de la SALIDA, no de la entrada: con --test la entrada
     # puede ser el Excel de produccion y no queremos pisar ni mezclar accesos.
-    aplicar_planilla_de_claves(os.path.join(AQUI, args.salida))
+    aplicar_planilla_de_claves(os.path.join(AQUI, args.salida), cuenta_area,
+                               escribir=not args.dry_run)
     accesos = leer_accesos_crudo(os.path.join(AQUI, args.salida))
     print("Excel actual: %d filas en Tableros, %d en Catalogo"
           % (len(prev_tab), len(prev_cat)))
